@@ -530,3 +530,19 @@ a {
   opacity: 0.65;
   cursor: not-allowed;
 }
+
+.logout-button {
+  width: 100%;
+  margin-top: 28px;
+  padding: 13px 16px;
+  border: none;
+  border-radius: 14px;
+  background: #9b2c2c;
+  color: #fffaf3;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background: #7f1d1d;
+}

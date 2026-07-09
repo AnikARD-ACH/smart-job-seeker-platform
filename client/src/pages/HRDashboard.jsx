@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import LogoutButton from "../components/LogoutButton";
 
 function HRDashboard() {
   return (
@@ -13,6 +14,7 @@ function HRDashboard() {
           <a>Assessments</a>
           <a>Interviews</a>
         </nav>
+        <LogoutButton />
         <Link to="/" className="sidebar-link">Back to Home</Link>
       </aside>
 

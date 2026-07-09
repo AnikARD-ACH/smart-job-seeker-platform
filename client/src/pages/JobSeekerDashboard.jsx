@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import LogoutButton from "../components/LogoutButton";
 
 function JobSeekerDashboard() {
   return (
@@ -13,6 +14,7 @@ function JobSeekerDashboard() {
           <a>Applications</a>
           <a>Interview Prep</a>
         </nav>
+        <LogoutButton />
         <Link to="/" className="sidebar-link">Back to Home</Link>
       </aside>
 
