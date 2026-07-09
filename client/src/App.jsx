@@ -1,45 +1,35 @@
 import { useEffect, useState } from "react";
+import { Navigate, Route, Routes } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import RoleSelectionPage from "./pages/RoleSelectionPage";
 import "./App.css";
 
 function App() {
-  const [health, setHealth] = useState(null);
-  const [error, setError] = useState("");
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem("theme") || "light";
+  });
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/health")
-      .then((res) => res.json())
-      .then((data) => {
-        setHealth(data);
-        setError("");
-      })
-      .catch(() => {
-        setError("Backend connection failed. Make sure backend server is running on port 5000.");
-      });
-  }, []);
+    localStorage.setItem("theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((currentTheme) => (currentTheme === "light" ? "dark" : "light"));
+  };
 
   return (
-    <main className="app-container">
-      <section className="hero-card">
-        <h1>Smart Job Seeker Platform</h1>
-        <p>AI-powered career development, recruitment, and skill intelligence platform.</p>
+    <div className="app-shell">
+      <button className="theme-toggle" onClick={toggleTheme}>
+        {theme === "light" ? "Dark Mode" : "Light Mode"}
+      </button>
 
-        <div className="status-box">
-          <h2>Backend API Status</h2>
-
-          {health ? (
-            <div className="success">
-              <p><strong>Status:</strong> {health.status}</p>
-              <p><strong>Service:</strong> {health.service}</p>
-              <p><strong>Connection:</strong> Successful</p>
-            </div>
-          ) : (
-            <div className="error">
-              <p>{error || "Checking backend connection..."}</p>
-            </div>
-          )}
-        </div>
-      </section>
-    </main>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/select-role" element={<RoleSelectionPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </div>
   );
 }
 
