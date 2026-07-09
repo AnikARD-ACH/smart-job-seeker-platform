@@ -5,17 +5,17 @@ function RoleSelectionPage() {
     {
       title: "Job Seeker",
       description: "Create profile, upload CV, apply for jobs, and receive AI career guidance.",
-      path: "/job-seeker/dashboard",
+      path: "/login/job-seeker",
     },
     {
       title: "HR / Recruiter",
       description: "Post jobs, review applicants, shortlist candidates, and schedule interviews.",
-      path: "/hr/dashboard",
+      path: "/login/hr",
     },
     {
       title: "Admin",
       description: "Manage users, approve HR accounts, monitor jobs, and control platform access.",
-      path: "/admin/dashboard",
+      path: "/login/admin",
     },
   ];
 
