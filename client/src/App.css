@@ -507,3 +507,26 @@ a {
 .login-card-back-button:hover {
   background: var(--accent-dark);
 }
+
+.login-message {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.success-text {
+  background: rgba(31, 111, 67, 0.12);
+  color: var(--success);
+}
+
+.error-text {
+  background: rgba(155, 44, 44, 0.12);
+  color: #d45f5f;
+}
+
+.login-form button:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
