@@ -6,6 +6,7 @@ import LoginPage from "./pages/LoginPage";
 import JobSeekerDashboard from "./pages/JobSeekerDashboard";
 import HRDashboard from "./pages/HRDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 
 function App() {
@@ -32,9 +33,34 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/select-role" element={<RoleSelectionPage />} />
         <Route path="/login/:role" element={<LoginPage />} />
-        <Route path="/job-seeker/dashboard" element={<JobSeekerDashboard />} />
-        <Route path="/hr/dashboard" element={<HRDashboard />} />
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+
+        <Route
+          path="/job-seeker/dashboard"
+          element={
+            <ProtectedRoute allowedRole="job_seeker">
+              <JobSeekerDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/hr/dashboard"
+          element={
+            <ProtectedRoute allowedRole="hr">
+              <HRDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRole="admin">
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>

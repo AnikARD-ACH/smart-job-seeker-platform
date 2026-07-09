@@ -86,8 +86,19 @@ function LoginPage() {
         throw new Error(data.message || "OTP verification failed.");
       }
 
-      setMessage("OTP verified successfully. Redirecting to dashboard...");
-      navigate(currentRole.dashboard);
+      localStorage.setItem(
+  "smart_job_seeker_auth",
+  JSON.stringify({
+    email: data.user.email,
+    role: data.user.role,
+    accountStatus: data.user.accountStatus,
+    isEmailVerified: data.user.isEmailVerified,
+    loggedInAt: new Date().toISOString(),
+  })
+);
+
+setMessage("OTP verified successfully. Redirecting to dashboard...");
+navigate(currentRole.dashboard);
     } catch (err) {
       setError(err.message);
     } finally {
