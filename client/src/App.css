@@ -288,3 +288,116 @@ a {
     bottom: 16px;
   }
 }
+
+.dashboard-page {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  background:
+    radial-gradient(circle at top left, rgba(180, 116, 82, 0.14), transparent 30%),
+    linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+}
+
+.dashboard-sidebar {
+  padding: 32px 24px;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border);
+  box-shadow: 12px 0 40px var(--shadow);
+}
+
+.dashboard-sidebar h2 {
+  margin: 0 0 28px;
+  color: var(--text-main);
+}
+
+.dashboard-sidebar nav {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-sidebar nav a,
+.sidebar-link {
+  padding: 13px 16px;
+  border-radius: 14px;
+  background: var(--bg-soft);
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+.sidebar-link {
+  display: block;
+  margin-top: 28px;
+  text-align: center;
+  background: var(--accent);
+  color: #fffaf3;
+}
+
+.dashboard-content {
+  padding: 70px 48px;
+}
+
+.dashboard-content h1 {
+  max-width: 760px;
+  margin: 0;
+  font-size: 46px;
+  line-height: 1.1;
+  color: var(--text-main);
+}
+
+.dashboard-content p {
+  max-width: 760px;
+  color: var(--text-muted);
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.dashboard-grid {
+  margin-top: 34px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+.dashboard-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 26px;
+  box-shadow: 0 18px 45px var(--shadow);
+}
+
+.dashboard-card h3 {
+  margin: 0 0 16px;
+  color: var(--text-main);
+}
+
+.dashboard-card strong {
+  display: block;
+  margin-bottom: 12px;
+  color: var(--accent-dark);
+  font-size: 28px;
+}
+
+.dashboard-card p {
+  font-size: 16px;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .dashboard-page {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-content {
+    padding: 44px 24px;
+  }
+}

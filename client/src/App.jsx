@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import LandingPage from "./pages/LandingPage";
 import RoleSelectionPage from "./pages/RoleSelectionPage";
+import JobSeekerDashboard from "./pages/JobSeekerDashboard";
+import HRDashboard from "./pages/HRDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 import "./App.css";
 
 function App() {
@@ -27,6 +30,9 @@ function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/select-role" element={<RoleSelectionPage />} />
+        <Route path="/job-seeker/dashboard" element={<JobSeekerDashboard />} />
+        <Route path="/hr/dashboard" element={<HRDashboard />} />
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </div>
