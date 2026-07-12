@@ -5,6 +5,7 @@ import LogoutButton from "../components/LogoutButton";
 function HRDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
@@ -23,8 +24,9 @@ function HRDashboard() {
     Promise.all([
       fetch(`http://localhost:5000/api/dashboard/hr?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/jobs/hr?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/applications/hr?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData]) => {
+      .then(([dashboardData, jobsData, applicationsData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load HR dashboard.");
         }
@@ -33,8 +35,13 @@ function HRDashboard() {
           throw new Error(jobsData.message || "Failed to load HR jobs.");
         }
 
+        if (!applicationsData.success) {
+          throw new Error(applicationsData.message || "Failed to load HR applications.");
+        }
+
         setDashboard(dashboardData.dashboard);
         setJobs(jobsData.jobs || []);
+        setApplications(applicationsData.applications || []);
         setError("");
       })
       .catch((err) => {
@@ -106,8 +113,8 @@ function HRDashboard() {
 
               <div className="dashboard-card">
                 <h3>New Applicants</h3>
-                <strong>{stats?.newApplicants}</strong>
-                <p>Applicant lists and AI match scores will appear here.</p>
+                <strong>{applications.length}</strong>
+                <p>Applications received for this HR account.</p>
               </div>
 
               <div className="dashboard-card">
@@ -116,6 +123,39 @@ function HRDashboard() {
                 <p>Google Calendar and video interview sessions will be managed here.</p>
               </div>
             </div>
+
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
+                  <span className="eyebrow">Received Applications</span>
+                  <h2>Applicants for your jobs</h2>
+                </div>
+                <strong>{applications.length} received</strong>
+              </div>
+
+              {applications.length === 0 ? (
+                <div className="approval-empty">
+                  No applications received yet.
+                </div>
+              ) : (
+                <div className="approval-list">
+                  {applications.map((application) => (
+                    <div className="approval-card" key={application._id}>
+                      <div>
+                        <h3>{application.jobTitle}</h3>
+                        <p>Candidate: {application.jobSeekerEmail}</p>
+                        <p>Company: {application.companyName}</p>
+                        <p>Cover Letter: {application.coverLetter || "Not provided"}</p>
+                        <p>Applied: {new Date(application.createdAt).toLocaleString()}</p>
+                        <p>CV Match Score: {application.cvMatchScore ?? "Not calculated yet"}</p>
+                      </div>
+
+                      <strong className="job-status-pill">{application.status}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <section className="approval-section">
               <div className="approval-header">
