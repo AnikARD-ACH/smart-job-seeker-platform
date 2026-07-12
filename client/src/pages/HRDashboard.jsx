@@ -54,7 +54,7 @@ function HRDashboard() {
         <h2>HR Panel</h2>
         <nav>
           <a>Overview</a>
-          <a>Post Job</a>
+          <Link to="/hr/post-job">Post Job</Link>
           <a>Applicants</a>
           <a>Shortlist</a>
           <a>Assessments</a>

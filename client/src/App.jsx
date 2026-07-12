@@ -6,6 +6,7 @@ import LoginPage from "./pages/LoginPage";
 import JobSeekerDashboard from "./pages/JobSeekerDashboard";
 import HRDashboard from "./pages/HRDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
+import PostJobPage from "./pages/PostJobPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 
@@ -48,6 +49,15 @@ function App() {
           element={
             <ProtectedRoute allowedRole="hr">
               <HRDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/hr/post-job"
+          element={
+            <ProtectedRoute allowedRole="hr">
+              <PostJobPage />
             </ProtectedRoute>
           }
         />
