@@ -6,8 +6,10 @@ function HRDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [updatingApplicationId, setUpdatingApplicationId] = useState("");
 
   useEffect(() => {
     const storedAuth = localStorage.getItem("smart_job_seeker_auth");
@@ -52,6 +54,43 @@ function HRDashboard() {
       });
   }, []);
 
+  const updateApplicationStatus = async (applicationId, status, remarks) => {
+    try {
+      setMessage("");
+      setError("");
+      setUpdatingApplicationId(applicationId);
+
+      const response = await fetch(`http://localhost:5000/api/applications/${applicationId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status,
+          remarks,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to update application status.");
+      }
+
+      setApplications((currentApplications) =>
+        currentApplications.map((application) =>
+          application._id === applicationId ? data.application : application
+        )
+      );
+
+      setMessage(`Application status updated to ${status.replace("_", " ")}.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingApplicationId("");
+    }
+  };
+
   const profile = dashboard?.profile;
   const stats = dashboard?.stats;
 
@@ -80,6 +119,7 @@ function HRDashboard() {
 
         {isLoading && <p>Loading dashboard data...</p>}
 
+        {message && <p className="dashboard-success">{message}</p>}
         {error && <p className="dashboard-error">{error}</p>}
 
         {dashboard && (
@@ -148,6 +188,74 @@ function HRDashboard() {
                         <p>Cover Letter: {application.coverLetter || "Not provided"}</p>
                         <p>Applied: {new Date(application.createdAt).toLocaleString()}</p>
                         <p>CV Match Score: {application.cvMatchScore ?? "Not calculated yet"}</p>
+                        <p>Remarks: {application.remarks || "No remarks yet"}</p>
+
+                        <div className="status-action-row">
+                          <button
+                            onClick={() =>
+                              updateApplicationStatus(
+                                application._id,
+                                "reviewing",
+                                "Application is now under HR review."
+                              )
+                            }
+                            disabled={updatingApplicationId === application._id}
+                          >
+                            Reviewing
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              updateApplicationStatus(
+                                application._id,
+                                "shortlisted",
+                                "Candidate has been shortlisted for the next stage."
+                              )
+                            }
+                            disabled={updatingApplicationId === application._id}
+                          >
+                            Shortlist
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              updateApplicationStatus(
+                                application._id,
+                                "rejected",
+                                "Candidate was not selected for this role."
+                              )
+                            }
+                            disabled={updatingApplicationId === application._id}
+                          >
+                            Reject
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              updateApplicationStatus(
+                                application._id,
+                                "interview_scheduled",
+                                "Candidate has been moved to interview scheduling."
+                              )
+                            }
+                            disabled={updatingApplicationId === application._id}
+                          >
+                            Interview
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              updateApplicationStatus(
+                                application._id,
+                                "hired",
+                                "Candidate has been marked as hired."
+                              )
+                            }
+                            disabled={updatingApplicationId === application._id}
+                          >
+                            Hire
+                          </button>
+                        </div>
                       </div>
 
                       <strong className="job-status-pill">{application.status}</strong>
