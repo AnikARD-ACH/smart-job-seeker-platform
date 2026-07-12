@@ -1,4 +1,5 @@
 const path = require("path");
+const fs = require("fs");
 const CV = require("../models/CV");
 
 const allowedMimeTypes = [
@@ -107,8 +108,46 @@ const getCVFile = async (req, res) => {
   }
 };
 
+const deleteCV = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const cv = await CV.findById(id);
+
+    if (!cv) {
+      return res.status(404).json({
+        success: false,
+        message: "CV not found.",
+      });
+    }
+
+    if (cv.filePath && fs.existsSync(cv.filePath)) {
+      fs.unlinkSync(cv.filePath);
+    }
+
+    await CV.findByIdAndDelete(id);
+
+    return res.status(200).json({
+      success: true,
+      message: "CV removed successfully.",
+      deletedCV: {
+        id: cv._id,
+        originalName: cv.originalName,
+        jobSeekerEmail: cv.jobSeekerEmail,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to remove CV.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   uploadCV,
   getLatestCVByJobSeeker,
   getCVFile,
+  deleteCV,
 };

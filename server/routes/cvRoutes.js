@@ -6,6 +6,7 @@ const {
   uploadCV,
   getLatestCVByJobSeeker,
   getCVFile,
+  deleteCV,
 } = require("../controllers/cvController");
 
 const router = express.Router();
@@ -37,5 +38,6 @@ const upload = multer({
 router.post("/upload", upload.single("cv"), uploadCV);
 router.get("/job-seeker", getLatestCVByJobSeeker);
 router.get("/:id/file", getCVFile);
+router.delete("/:id", deleteCV);
 
 module.exports = router;
