@@ -1,6 +1,15 @@
 const Application = require("../models/Application");
 const Job = require("../models/Job");
 
+const allowedStatuses = [
+  "submitted",
+  "reviewing",
+  "shortlisted",
+  "rejected",
+  "interview_scheduled",
+  "hired",
+];
+
 const applyToJob = async (req, res) => {
   try {
     const { jobId, jobSeekerEmail, coverLetter } = req.body;
@@ -117,8 +126,61 @@ const getApplicationsByHR = async (req, res) => {
   }
 };
 
+const updateApplicationStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, remarks } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Application status is required.",
+      });
+    }
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid application status.",
+      });
+    }
+
+    const application = await Application.findByIdAndUpdate(
+      id,
+      {
+        status,
+        remarks: remarks || "",
+      },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Application status updated successfully.",
+      application,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update application status.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   applyToJob,
   getApplicationsByJobSeeker,
   getApplicationsByHR,
+  updateApplicationStatus,
 };
