@@ -5,10 +5,13 @@ import LogoutButton from "../components/LogoutButton";
 function JobSeekerDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [jobs, setJobs] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [applyingJobId, setApplyingJobId] = useState("");
 
-  useEffect(() => {
+  const loadDashboardData = () => {
     const storedAuth = localStorage.getItem("smart_job_seeker_auth");
 
     if (!storedAuth) {
@@ -23,8 +26,9 @@ function JobSeekerDashboard() {
     Promise.all([
       fetch(`http://localhost:5000/api/dashboard/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch("http://localhost:5000/api/jobs").then((res) => res.json()),
+      fetch(`http://localhost:5000/api/applications/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData]) => {
+      .then(([dashboardData, jobsData, applicationsData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load dashboard.");
         }
@@ -33,10 +37,15 @@ function JobSeekerDashboard() {
           throw new Error(jobsData.message || "Failed to load jobs.");
         }
 
+        if (!applicationsData.success) {
+          throw new Error(applicationsData.message || "Failed to load applications.");
+        }
+
         const openJobs = (jobsData.jobs || []).filter((job) => job.status === "open");
 
         setDashboard(dashboardData.dashboard);
         setJobs(openJobs);
+        setApplications(applicationsData.applications || []);
         setError("");
       })
       .catch((err) => {
@@ -45,7 +54,60 @@ function JobSeekerDashboard() {
       .finally(() => {
         setIsLoading(false);
       });
+  };
+
+  useEffect(() => {
+    loadDashboardData();
   }, []);
+
+  const handleApply = async (job) => {
+    try {
+      setMessage("");
+      setError("");
+      setApplyingJobId(job._id);
+
+      const storedAuth = localStorage.getItem("smart_job_seeker_auth");
+
+      if (!storedAuth) {
+        throw new Error("Login session not found.");
+      }
+
+      const auth = JSON.parse(storedAuth);
+
+      const response = await fetch("http://localhost:5000/api/applications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobId: job._id,
+          jobSeekerEmail: auth.email,
+          coverLetter: "I am interested in this role and I believe my skills match the requirements.",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to submit application.");
+      }
+
+      setApplications((currentApplications) => [
+        data.application,
+        ...currentApplications,
+      ]);
+
+      setMessage(`Application submitted for ${job.title}.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setApplyingJobId("");
+    }
+  };
+
+  const hasApplied = (jobId) => {
+    return applications.some((application) => application.jobId === jobId);
+  };
 
   const profile = dashboard?.profile;
   const stats = dashboard?.stats;
@@ -75,6 +137,7 @@ function JobSeekerDashboard() {
 
         {isLoading && <p>Loading dashboard data...</p>}
 
+        {message && <p className="dashboard-success">{message}</p>}
         {error && <p className="dashboard-error">{error}</p>}
 
         {dashboard && (
@@ -108,8 +171,8 @@ function JobSeekerDashboard() {
 
               <div className="dashboard-card">
                 <h3>Applications</h3>
-                <strong>{stats?.applications}</strong>
-                <p>Your submitted applications will be tracked here.</p>
+                <strong>{applications.length}</strong>
+                <p>Your submitted applications are tracked here.</p>
               </div>
 
               <div className="dashboard-card">
@@ -134,20 +197,34 @@ function JobSeekerDashboard() {
                 </div>
               ) : (
                 <div className="approval-list">
-                  {jobs.map((job) => (
-                    <div className="approval-card" key={job._id}>
-                      <div>
-                        <h3>{job.title}</h3>
-                        <p>Company: {job.companyName}</p>
-                        <p>Location: {job.location}</p>
-                        <p>Type: {job.jobType}</p>
-                        <p>Deadline: {new Date(job.deadline).toLocaleDateString()}</p>
-                        <p>Skills: {job.requiredSkills?.join(", ")}</p>
-                      </div>
+                  {jobs.map((job) => {
+                    const alreadyApplied = hasApplied(job._id);
 
-                      <strong className="job-status-pill">Apply Soon</strong>
-                    </div>
-                  ))}
+                    return (
+                      <div className="approval-card" key={job._id}>
+                        <div>
+                          <h3>{job.title}</h3>
+                          <p>Company: {job.companyName}</p>
+                          <p>Location: {job.location}</p>
+                          <p>Type: {job.jobType}</p>
+                          <p>Deadline: {new Date(job.deadline).toLocaleDateString()}</p>
+                          <p>Skills: {job.requiredSkills?.join(", ")}</p>
+                        </div>
+
+                        {alreadyApplied ? (
+                          <strong className="job-status-pill">Already Applied</strong>
+                        ) : (
+                          <button
+                            className="apply-button"
+                            onClick={() => handleApply(job)}
+                            disabled={applyingJobId === job._id}
+                          >
+                            {applyingJobId === job._id ? "Applying..." : "Apply Now"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
