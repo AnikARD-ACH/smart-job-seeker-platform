@@ -1,7 +1,33 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
 
 function AdminDashboard() {
+  const [dashboard, setDashboard] = useState(null);
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("http://localhost:5000/api/dashboard/admin")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) {
+          throw new Error(data.message || "Failed to load admin dashboard.");
+        }
+
+        setDashboard(data.dashboard);
+        setError("");
+      })
+      .catch((err) => {
+        setError(err.message);
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, []);
+
+  const stats = dashboard?.stats;
+
   return (
     <main className="dashboard-page">
       <aside className="dashboard-sidebar">
@@ -25,23 +51,53 @@ function AdminDashboard() {
           Admins approve HR accounts, monitor platform activity, manage access, and supervise system security.
         </p>
 
-        <div className="dashboard-grid">
-          <div className="dashboard-card">
-            <h3>Total Users</h3>
-            <strong>0</strong>
-            <p>User statistics will appear after authentication is added.</p>
-          </div>
-          <div className="dashboard-card">
-            <h3>Pending HR Approvals</h3>
-            <strong>0</strong>
-            <p>Company and recruiter approval requests will appear here.</p>
-          </div>
-          <div className="dashboard-card">
-            <h3>Security Status</h3>
-            <strong>Ready</strong>
-            <p>Admin 2FA and access control will be configured in authentication phase.</p>
-          </div>
-        </div>
+        {isLoading && <p>Loading dashboard data...</p>}
+
+        {error && <p className="dashboard-error">{error}</p>}
+
+        {dashboard && (
+          <>
+            <div className="dashboard-grid">
+              <div className="dashboard-card">
+                <h3>Total Users</h3>
+                <strong>{stats?.totalUsers}</strong>
+                <p>Total registered users stored in MongoDB.</p>
+              </div>
+
+              <div className="dashboard-card">
+                <h3>Job Seekers</h3>
+                <strong>{stats?.jobSeekers}</strong>
+                <p>Total job seeker accounts.</p>
+              </div>
+
+              <div className="dashboard-card">
+                <h3>HR Users</h3>
+                <strong>{stats?.hrUsers}</strong>
+                <p>Total HR / recruiter accounts.</p>
+              </div>
+            </div>
+
+            <div className="dashboard-grid">
+              <div className="dashboard-card">
+                <h3>Admin Users</h3>
+                <strong>{stats?.adminUsers}</strong>
+                <p>Total platform administrator accounts.</p>
+              </div>
+
+              <div className="dashboard-card">
+                <h3>Pending HR Approvals</h3>
+                <strong>{stats?.pendingHRApprovals}</strong>
+                <p>HR accounts waiting for admin approval.</p>
+              </div>
+
+              <div className="dashboard-card">
+                <h3>Security Status</h3>
+                <strong>{stats?.securityStatus}</strong>
+                <p>Admin 2FA and advanced access control will be configured later.</p>
+              </div>
+            </div>
+          </>
+        )}
       </section>
     </main>
   );

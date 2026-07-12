@@ -546,3 +546,12 @@ a {
 .logout-button:hover {
   background: #7f1d1d;
 }
+
+.dashboard-error {
+  margin-top: 24px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(155, 44, 44, 0.12);
+  color: #d45f5f;
+  font-weight: 800;
+}

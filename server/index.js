@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
+const dashboardRoutes = require("./routes/dashboardRoutes");
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
