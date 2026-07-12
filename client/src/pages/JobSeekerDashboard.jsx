@@ -109,6 +109,14 @@ function JobSeekerDashboard() {
     return applications.some((application) => application.jobId === jobId);
   };
 
+  const formatStatus = (status) => {
+    if (!status) {
+      return "Not available";
+    }
+
+    return status.replace("_", " ");
+  };
+
   const profile = dashboard?.profile;
   const stats = dashboard?.stats;
 
@@ -178,9 +186,43 @@ function JobSeekerDashboard() {
               <div className="dashboard-card">
                 <h3>Data Source</h3>
                 <strong>MongoDB</strong>
-                <p>This dashboard is loading real backend job data.</p>
+                <p>This dashboard is loading real backend job and application data.</p>
               </div>
             </div>
+
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
+                  <span className="eyebrow">My Applications</span>
+                  <h2>Track your application statuses</h2>
+                </div>
+                <strong>{applications.length} submitted</strong>
+              </div>
+
+              {applications.length === 0 ? (
+                <div className="approval-empty">
+                  You have not applied to any jobs yet.
+                </div>
+              ) : (
+                <div className="approval-list">
+                  {applications.map((application) => (
+                    <div className="approval-card" key={application._id}>
+                      <div>
+                        <h3>{application.jobTitle}</h3>
+                        <p>Company: {application.companyName}</p>
+                        <p>HR Email: {application.hrEmail}</p>
+                        <p>Applied: {new Date(application.createdAt).toLocaleString()}</p>
+                        <p>Cover Letter: {application.coverLetter || "Not provided"}</p>
+                        <p>CV Match Score: {application.cvMatchScore ?? "Not calculated yet"}</p>
+                        <p>Remarks: {application.remarks || "No remarks yet"}</p>
+                      </div>
+
+                      <strong className="job-status-pill">{formatStatus(application.status)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
 
             <section className="approval-section">
               <div className="approval-header">
