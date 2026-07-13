@@ -841,3 +841,28 @@ a {
   opacity: 0.65;
   cursor: not-allowed;
 }
+
+.profile-form {
+  background: var(--bg-soft);
+  border-radius: 20px;
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.profile-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.profile-form textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+@media (max-width: 800px) {
+  .profile-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

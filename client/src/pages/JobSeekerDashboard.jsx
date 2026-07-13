@@ -2,8 +2,25 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
 
+const emptyProfileForm = {
+  fullName: "",
+  phone: "",
+  location: "",
+  education: "",
+  experienceLevel: "",
+  skills: "",
+  preferredJobType: "",
+  preferredLocation: "",
+  portfolioUrl: "",
+  githubUrl: "",
+  linkedinUrl: "",
+  bio: "",
+};
+
 function JobSeekerDashboard() {
   const [dashboard, setDashboard] = useState(null);
+  const [candidateProfile, setCandidateProfile] = useState(null);
+  const [profileForm, setProfileForm] = useState(emptyProfileForm);
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [latestCV, setLatestCV] = useState(null);
@@ -12,6 +29,7 @@ function JobSeekerDashboard() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isUploadingCV, setIsUploadingCV] = useState(false);
   const [isRemovingCV, setIsRemovingCV] = useState(false);
   const [applyingJobId, setApplyingJobId] = useState("");
@@ -33,8 +51,9 @@ function JobSeekerDashboard() {
       fetch("http://localhost:5000/api/jobs").then((res) => res.json()),
       fetch(`http://localhost:5000/api/applications/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/cv/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/candidate-profile/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData, applicationsData, cvData]) => {
+      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load dashboard.");
         }
@@ -51,12 +70,36 @@ function JobSeekerDashboard() {
           throw new Error(cvData.message || "Failed to load CV.");
         }
 
+        if (!candidateProfileData.success) {
+          throw new Error(candidateProfileData.message || "Failed to load candidate profile.");
+        }
+
         const openJobs = (jobsData.jobs || []).filter((job) => job.status === "open");
+        const loadedProfile = candidateProfileData.profile;
 
         setDashboard(dashboardData.dashboard);
         setJobs(openJobs);
         setApplications(applicationsData.applications || []);
         setLatestCV(cvData.cv || null);
+        setCandidateProfile(loadedProfile || null);
+
+        if (loadedProfile) {
+          setProfileForm({
+            fullName: loadedProfile.fullName || "",
+            phone: loadedProfile.phone || "",
+            location: loadedProfile.location || "",
+            education: loadedProfile.education || "",
+            experienceLevel: loadedProfile.experienceLevel || "",
+            skills: (loadedProfile.skills || []).join(", "),
+            preferredJobType: loadedProfile.preferredJobType || "",
+            preferredLocation: loadedProfile.preferredLocation || "",
+            portfolioUrl: loadedProfile.portfolioUrl || "",
+            githubUrl: loadedProfile.githubUrl || "",
+            linkedinUrl: loadedProfile.linkedinUrl || "",
+            bio: loadedProfile.bio || "",
+          });
+        }
+
         setError("");
       })
       .catch((err) => {
@@ -70,6 +113,72 @@ function JobSeekerDashboard() {
   useEffect(() => {
     loadDashboardData();
   }, []);
+
+  const handleProfileChange = (event) => {
+    const { name, value } = event.target;
+
+    setProfileForm((currentForm) => ({
+      ...currentForm,
+      [name]: value,
+    }));
+  };
+
+  const handleProfileSave = async (event) => {
+    event.preventDefault();
+
+    try {
+      setMessage("");
+      setError("");
+      setIsSavingProfile(true);
+
+      const storedAuth = localStorage.getItem("smart_job_seeker_auth");
+
+      if (!storedAuth) {
+        throw new Error("Login session not found.");
+      }
+
+      const auth = JSON.parse(storedAuth);
+
+      const response = await fetch("http://localhost:5000/api/candidate-profile/job-seeker", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobSeekerEmail: auth.email,
+          ...profileForm,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save candidate profile.");
+      }
+
+      setCandidateProfile(data.profile);
+      setProfileForm({
+        fullName: data.profile.fullName || "",
+        phone: data.profile.phone || "",
+        location: data.profile.location || "",
+        education: data.profile.education || "",
+        experienceLevel: data.profile.experienceLevel || "",
+        skills: (data.profile.skills || []).join(", "),
+        preferredJobType: data.profile.preferredJobType || "",
+        preferredLocation: data.profile.preferredLocation || "",
+        portfolioUrl: data.profile.portfolioUrl || "",
+        githubUrl: data.profile.githubUrl || "",
+        linkedinUrl: data.profile.linkedinUrl || "",
+        bio: data.profile.bio || "",
+      });
+
+      setMessage("Candidate profile saved successfully.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
 
   const handleApply = async (job) => {
     try {
@@ -227,7 +336,7 @@ function JobSeekerDashboard() {
     return `${(sizeInKB / 1024).toFixed(2)} MB`;
   };
 
-  const profile = dashboard?.profile;
+  const dashboardProfile = dashboard?.profile;
   const stats = dashboard?.stats;
 
   return (
@@ -263,14 +372,14 @@ function JobSeekerDashboard() {
             <div className="dashboard-grid">
               <div className="dashboard-card">
                 <h3>Profile Email</h3>
-                <strong>{profile?.email}</strong>
-                <p>Status: {profile?.accountStatus}</p>
+                <strong>{dashboardProfile?.email}</strong>
+                <p>Status: {dashboardProfile?.accountStatus}</p>
               </div>
 
               <div className="dashboard-card">
-                <h3>Email Verification</h3>
-                <strong>{profile?.isEmailVerified ? "Verified" : "Not verified"}</strong>
-                <p>Last login: {profile?.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleString() : "Not available"}</p>
+                <h3>Candidate Name</h3>
+                <strong>{candidateProfile?.fullName || "Not added"}</strong>
+                <p>Experience: {candidateProfile?.experienceLevel || "Not added"}</p>
               </div>
 
               <div className="dashboard-card">
@@ -296,9 +405,159 @@ function JobSeekerDashboard() {
               <div className="dashboard-card">
                 <h3>Data Source</h3>
                 <strong>MongoDB</strong>
-                <p>This dashboard is loading real backend job, application, and CV data.</p>
+                <p>This dashboard is loading real backend profile, job, application, and CV data.</p>
               </div>
             </div>
+
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
+                  <span className="eyebrow">Candidate Profile</span>
+                  <h2>Update your career profile</h2>
+                </div>
+                <strong>{candidateProfile ? "Saved" : "Not saved"}</strong>
+              </div>
+
+              <form className="profile-form" onSubmit={handleProfileSave}>
+                <div className="profile-form-grid">
+                  <div className="form-field">
+                    <label>Full Name</label>
+                    <input
+                      name="fullName"
+                      value={profileForm.fullName}
+                      onChange={handleProfileChange}
+                      placeholder="Anik Rahman"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Phone</label>
+                    <input
+                      name="phone"
+                      value={profileForm.phone}
+                      onChange={handleProfileChange}
+                      placeholder="01700000000"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Location</label>
+                    <input
+                      name="location"
+                      value={profileForm.location}
+                      onChange={handleProfileChange}
+                      placeholder="Dhaka, Bangladesh"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Education</label>
+                    <input
+                      name="education"
+                      value={profileForm.education}
+                      onChange={handleProfileChange}
+                      placeholder="Bachelor student in CSE/MIS"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Experience Level</label>
+                    <select
+                      name="experienceLevel"
+                      value={profileForm.experienceLevel}
+                      onChange={handleProfileChange}
+                    >
+                      <option value="">Select experience level</option>
+                      <option value="Fresher">Fresher</option>
+                      <option value="Entry Level">Entry Level</option>
+                      <option value="Mid Level">Mid Level</option>
+                      <option value="Senior Level">Senior Level</option>
+                      <option value="Lead / Manager">Lead / Manager</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Preferred Job Type</label>
+                    <select
+                      name="preferredJobType"
+                      value={profileForm.preferredJobType}
+                      onChange={handleProfileChange}
+                    >
+                      <option value="">Select job type</option>
+                      <option value="Full-time">Full-time</option>
+                      <option value="Part-time">Part-time</option>
+                      <option value="Internship">Internship</option>
+                      <option value="Contract">Contract</option>
+                      <option value="Remote">Remote</option>
+                    </select>
+                  </div>
+
+                  <div className="form-field">
+                    <label>Preferred Location</label>
+                    <input
+                      name="preferredLocation"
+                      value={profileForm.preferredLocation}
+                      onChange={handleProfileChange}
+                      placeholder="Dhaka, Bangladesh"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Skills</label>
+                    <input
+                      name="skills"
+                      value={profileForm.skills}
+                      onChange={handleProfileChange}
+                      placeholder="HTML, CSS, JavaScript, React"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>Portfolio URL</label>
+                    <input
+                      name="portfolioUrl"
+                      value={profileForm.portfolioUrl}
+                      onChange={handleProfileChange}
+                      placeholder="https://portfolio.example.com"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>GitHub URL</label>
+                    <input
+                      name="githubUrl"
+                      value={profileForm.githubUrl}
+                      onChange={handleProfileChange}
+                      placeholder="https://github.com/username"
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label>LinkedIn URL</label>
+                    <input
+                      name="linkedinUrl"
+                      value={profileForm.linkedinUrl}
+                      onChange={handleProfileChange}
+                      placeholder="https://linkedin.com/in/username"
+                    />
+                  </div>
+                </div>
+
+                <div className="form-field">
+                  <label>Bio</label>
+                  <textarea
+                    name="bio"
+                    value={profileForm.bio}
+                    onChange={handleProfileChange}
+                    placeholder="Write a short career summary..."
+                  />
+                </div>
+
+                <button className="apply-button" type="submit" disabled={isSavingProfile}>
+                  {isSavingProfile ? "Saving..." : "Save Profile"}
+                </button>
+              </form>
+            </section>
 
             <section className="approval-section">
               <div className="approval-header">
