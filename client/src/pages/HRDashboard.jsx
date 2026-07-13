@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
 
@@ -10,6 +10,11 @@ function HRDashboard() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [updatingApplicationId, setUpdatingApplicationId] = useState("");
+  const [selectedApplicationId, setSelectedApplicationId] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [jobFilter, setJobFilter] = useState("all");
+  const [minScoreFilter, setMinScoreFilter] = useState("all");
+  const [sortOption, setSortOption] = useState("newest");
 
   useEffect(() => {
     const storedAuth = localStorage.getItem("smart_job_seeker_auth");
@@ -41,9 +46,16 @@ function HRDashboard() {
           throw new Error(applicationsData.message || "Failed to load HR applications.");
         }
 
+        const loadedApplications = applicationsData.applications || [];
+
         setDashboard(dashboardData.dashboard);
         setJobs(jobsData.jobs || []);
-        setApplications(applicationsData.applications || []);
+        setApplications(loadedApplications);
+
+        if (loadedApplications.length > 0) {
+          setSelectedApplicationId(loadedApplications[0]._id);
+        }
+
         setError("");
       })
       .catch((err) => {
@@ -83,13 +95,76 @@ function HRDashboard() {
         )
       );
 
-      setMessage(`Application status updated to ${status.replace("_", " ")}.`);
+      setSelectedApplicationId(applicationId);
+      setMessage(`Application status updated to ${formatStatus(status)}.`);
     } catch (err) {
       setError(err.message);
     } finally {
       setUpdatingApplicationId("");
     }
   };
+
+  const formatStatus = (status) => {
+    return String(status || "")
+      .replace(/_/g, " ")
+      .toUpperCase();
+  };
+
+  const getScoreLabel = (score) => {
+    return typeof score === "number" ? `${score}%` : "Not calculated";
+  };
+
+  const getStatusCount = (status) => {
+    return applications.filter((application) => application.status === status).length;
+  };
+
+  const uniqueJobTitles = useMemo(() => {
+    return [...new Set(applications.map((application) => application.jobTitle).filter(Boolean))];
+  }, [applications]);
+
+  const filteredApplications = useMemo(() => {
+    let result = [...applications];
+
+    if (statusFilter !== "all") {
+      result = result.filter((application) => application.status === statusFilter);
+    }
+
+    if (jobFilter !== "all") {
+      result = result.filter((application) => application.jobTitle === jobFilter);
+    }
+
+    if (minScoreFilter !== "all") {
+      const minimumScore = Number(minScoreFilter);
+
+      result = result.filter((application) => {
+        const score = typeof application.cvMatchScore === "number" ? application.cvMatchScore : -1;
+        return score >= minimumScore;
+      });
+    }
+
+    result.sort((a, b) => {
+      if (sortOption === "oldest") {
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      }
+
+      if (sortOption === "highest-score") {
+        return (b.cvMatchScore ?? -1) - (a.cvMatchScore ?? -1);
+      }
+
+      if (sortOption === "lowest-score") {
+        return (a.cvMatchScore ?? 999) - (b.cvMatchScore ?? 999);
+      }
+
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    return result;
+  }, [applications, statusFilter, jobFilter, minScoreFilter, sortOption]);
+
+  const selectedApplication =
+    filteredApplications.find((application) => application._id === selectedApplicationId) ||
+    filteredApplications[0] ||
+    null;
 
   const profile = dashboard?.profile;
   const stats = dashboard?.stats;
@@ -140,7 +215,12 @@ function HRDashboard() {
               <div className="dashboard-card">
                 <h3>Email Verification</h3>
                 <strong>{profile?.isEmailVerified ? "Verified" : "Not verified"}</strong>
-                <p>Last login: {profile?.lastLoginAt ? new Date(profile.lastLoginAt).toLocaleString() : "Not available"}</p>
+                <p>
+                  Last login:{" "}
+                  {profile?.lastLoginAt
+                    ? new Date(profile.lastLoginAt).toLocaleString()
+                    : "Not available"}
+                </p>
               </div>
             </div>
 
@@ -152,7 +232,7 @@ function HRDashboard() {
               </div>
 
               <div className="dashboard-card">
-                <h3>New Applicants</h3>
+                <h3>Total Applicants</h3>
                 <strong>{applications.length}</strong>
                 <p>Applications received for this HR account.</p>
               </div>
@@ -168,99 +248,251 @@ function HRDashboard() {
               <div className="approval-header">
                 <div>
                   <span className="eyebrow">Received Applications</span>
-                  <h2>Applicants for your jobs</h2>
+                  <h2>Applicant review center</h2>
                 </div>
-                <strong>{applications.length} received</strong>
+                <strong>{filteredApplications.length} shown / {applications.length} total</strong>
+              </div>
+
+              <div className="status-summary-grid">
+                <div className="mini-stat-card">
+                  <strong>{getStatusCount("reviewing")}</strong>
+                  <span>Reviewing</span>
+                </div>
+
+                <div className="mini-stat-card">
+                  <strong>{getStatusCount("shortlisted")}</strong>
+                  <span>Shortlisted</span>
+                </div>
+
+                <div className="mini-stat-card">
+                  <strong>{getStatusCount("interview_scheduled")}</strong>
+                  <span>Interview</span>
+                </div>
+
+                <div className="mini-stat-card">
+                  <strong>{getStatusCount("hired")}</strong>
+                  <span>Hired</span>
+                </div>
+
+                <div className="mini-stat-card">
+                  <strong>{getStatusCount("rejected")}</strong>
+                  <span>Rejected</span>
+                </div>
+              </div>
+
+              <div className="filter-panel">
+                <div className="filter-grid">
+                  <label className="filter-field">
+                    <span>Status</span>
+                    <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                      <option value="all">All statuses</option>
+                      <option value="submitted">Submitted</option>
+                      <option value="reviewing">Reviewing</option>
+                      <option value="shortlisted">Shortlisted</option>
+                      <option value="interview_scheduled">Interview scheduled</option>
+                      <option value="hired">Hired</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </label>
+
+                  <label className="filter-field">
+                    <span>Job</span>
+                    <select value={jobFilter} onChange={(event) => setJobFilter(event.target.value)}>
+                      <option value="all">All jobs</option>
+                      {uniqueJobTitles.map((jobTitle) => (
+                        <option value={jobTitle} key={jobTitle}>
+                          {jobTitle}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="filter-field">
+                    <span>Minimum score</span>
+                    <select value={minScoreFilter} onChange={(event) => setMinScoreFilter(event.target.value)}>
+                      <option value="all">Any score</option>
+                      <option value="50">50% and above</option>
+                      <option value="70">70% and above</option>
+                      <option value="85">85% and above</option>
+                      <option value="90">90% and above</option>
+                    </select>
+                  </label>
+
+                  <label className="filter-field">
+                    <span>Sort</span>
+                    <select value={sortOption} onChange={(event) => setSortOption(event.target.value)}>
+                      <option value="newest">Newest first</option>
+                      <option value="oldest">Oldest first</option>
+                      <option value="highest-score">Highest score first</option>
+                      <option value="lowest-score">Lowest score first</option>
+                    </select>
+                  </label>
+                </div>
+
+                <button
+                  className="secondary-action-button"
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setJobFilter("all");
+                    setMinScoreFilter("all");
+                    setSortOption("newest");
+                  }}
+                >
+                  Reset filters
+                </button>
               </div>
 
               {applications.length === 0 ? (
                 <div className="approval-empty">
                   No applications received yet.
                 </div>
+              ) : filteredApplications.length === 0 ? (
+                <div className="approval-empty">
+                  No applicants match the selected filters.
+                </div>
               ) : (
-                <div className="approval-list">
-                  {applications.map((application) => (
-                    <div className="approval-card" key={application._id}>
-                      <div>
-                        <h3>{application.jobTitle}</h3>
-                        <p>Candidate: {application.jobSeekerEmail}</p>
-                        <p>Company: {application.companyName}</p>
-                        <p>Cover Letter: {application.coverLetter || "Not provided"}</p>
-                        <p>Applied: {new Date(application.createdAt).toLocaleString()}</p>
-                        <p>CV Match Score: {application.cvMatchScore ?? "Not calculated yet"}</p>
-                        <p>Remarks: {application.remarks || "No remarks yet"}</p>
+                <div className="applicant-review-layout">
+                  <div className="applicant-list">
+                    {filteredApplications.map((application) => (
+                      <button
+                        type="button"
+                        className={`applicant-list-item ${
+                          selectedApplication?._id === application._id ? "active" : ""
+                        }`}
+                        key={application._id}
+                        onClick={() => setSelectedApplicationId(application._id)}
+                      >
+                        <div>
+                          <strong>{application.jobTitle}</strong>
+                          <span>{application.jobSeekerEmail}</span>
+                        </div>
 
-                        <div className="status-action-row">
-                          <button
-                            onClick={() =>
-                              updateApplicationStatus(
-                                application._id,
-                                "reviewing",
-                                "Application is now under HR review."
-                              )
-                            }
-                            disabled={updatingApplicationId === application._id}
-                          >
-                            Reviewing
-                          </button>
+                        <div className="applicant-meta-row">
+                          <span>{formatStatus(application.status)}</span>
+                          <strong>{getScoreLabel(application.cvMatchScore)}</strong>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
 
-                          <button
-                            onClick={() =>
-                              updateApplicationStatus(
-                                application._id,
-                                "shortlisted",
-                                "Candidate has been shortlisted for the next stage."
-                              )
-                            }
-                            disabled={updatingApplicationId === application._id}
-                          >
-                            Shortlist
-                          </button>
+                  {selectedApplication && (
+                    <div className="applicant-detail-card">
+                      <div className="approval-header">
+                        <div>
+                          <span className="eyebrow">Applicant Details</span>
+                          <h2>{selectedApplication.jobTitle}</h2>
+                        </div>
 
-                          <button
-                            onClick={() =>
-                              updateApplicationStatus(
-                                application._id,
-                                "rejected",
-                                "Candidate was not selected for this role."
-                              )
-                            }
-                            disabled={updatingApplicationId === application._id}
-                          >
-                            Reject
-                          </button>
+                        <strong className="job-status-pill">
+                          {formatStatus(selectedApplication.status)}
+                        </strong>
+                      </div>
 
-                          <button
-                            onClick={() =>
-                              updateApplicationStatus(
-                                application._id,
-                                "interview_scheduled",
-                                "Candidate has been moved to interview scheduling."
-                              )
-                            }
-                            disabled={updatingApplicationId === application._id}
-                          >
-                            Interview
-                          </button>
+                      <div className="score-large">
+                        <span>CV Match Score</span>
+                        <strong>{getScoreLabel(selectedApplication.cvMatchScore)}</strong>
+                      </div>
 
-                          <button
-                            onClick={() =>
-                              updateApplicationStatus(
-                                application._id,
-                                "hired",
-                                "Candidate has been marked as hired."
-                              )
-                            }
-                            disabled={updatingApplicationId === application._id}
-                          >
-                            Hire
-                          </button>
+                      <div className="detail-grid">
+                        <div>
+                          <span>Candidate Email</span>
+                          <strong>{selectedApplication.jobSeekerEmail}</strong>
+                        </div>
+
+                        <div>
+                          <span>Company</span>
+                          <strong>{selectedApplication.companyName}</strong>
+                        </div>
+
+                        <div>
+                          <span>Applied</span>
+                          <strong>{new Date(selectedApplication.createdAt).toLocaleString()}</strong>
+                        </div>
+
+                        <div>
+                          <span>Application Status</span>
+                          <strong>{formatStatus(selectedApplication.status)}</strong>
                         </div>
                       </div>
 
-                      <strong className="job-status-pill">{application.status}</strong>
+                      <div className="detail-block">
+                        <h3>Cover Letter</h3>
+                        <p>{selectedApplication.coverLetter || "Not provided"}</p>
+                      </div>
+
+                      <div className="detail-block">
+                        <h3>HR Remarks</h3>
+                        <p>{selectedApplication.remarks || "No remarks yet"}</p>
+                      </div>
+
+                      <div className="status-action-row">
+                        <button
+                          onClick={() =>
+                            updateApplicationStatus(
+                              selectedApplication._id,
+                              "reviewing",
+                              "Application is now under HR review."
+                            )
+                          }
+                          disabled={updatingApplicationId === selectedApplication._id}
+                        >
+                          Reviewing
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateApplicationStatus(
+                              selectedApplication._id,
+                              "shortlisted",
+                              "Candidate has been shortlisted for the next stage."
+                            )
+                          }
+                          disabled={updatingApplicationId === selectedApplication._id}
+                        >
+                          Shortlist
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateApplicationStatus(
+                              selectedApplication._id,
+                              "rejected",
+                              "Candidate was not selected for this role."
+                            )
+                          }
+                          disabled={updatingApplicationId === selectedApplication._id}
+                        >
+                          Reject
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateApplicationStatus(
+                              selectedApplication._id,
+                              "interview_scheduled",
+                              "Candidate has been moved to interview scheduling."
+                            )
+                          }
+                          disabled={updatingApplicationId === selectedApplication._id}
+                        >
+                          Interview
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            updateApplicationStatus(
+                              selectedApplication._id,
+                              "hired",
+                              "Candidate has been marked as hired."
+                            )
+                          }
+                          disabled={updatingApplicationId === selectedApplication._id}
+                        >
+                          Hire
+                        </button>
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
             </section>
