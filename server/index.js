@@ -10,7 +10,7 @@ const jobRoutes = require("./routes/jobRoutes");
 const applicationRoutes = require("./routes/applicationRoutes");
 const cvRoutes = require("./routes/cvRoutes");
 const candidateProfileRoutes = require("./routes/candidateProfileRoutes");
-
+const matchRoutes = require("./routes/matchRoutes");
 
 const app = express();
 
@@ -44,6 +44,7 @@ app.use("/api/jobs", jobRoutes);
 app.use("/api/applications", applicationRoutes);
 app.use("/api/cv", cvRoutes);
 app.use("/api/candidate-profile", candidateProfileRoutes);
+app.use("/api/matches", matchRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
