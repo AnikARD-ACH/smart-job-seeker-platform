@@ -866,3 +866,52 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+.match-card {
+  align-items: flex-start;
+}
+
+.match-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.match-score-badge {
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--accent);
+  color: white;
+  font-weight: 900;
+}
+
+.skill-pill-section {
+  margin-top: 14px;
+}
+
+.skill-pill-section p {
+  margin-bottom: 8px;
+  font-weight: 800;
+}
+
+.skill-pill-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.skill-pill {
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: rgba(45, 120, 69, 0.18);
+  color: #72e59b;
+  font-weight: 800;
+}
+
+.skill-pill.missing {
+  background: rgba(166, 45, 45, 0.2);
+  color: #ff9c9c;
+}

@@ -22,6 +22,7 @@ function JobSeekerDashboard() {
   const [candidateProfile, setCandidateProfile] = useState(null);
   const [profileForm, setProfileForm] = useState(emptyProfileForm);
   const [jobs, setJobs] = useState([]);
+  const [jobMatches, setJobMatches] = useState([]);
   const [applications, setApplications] = useState([]);
   const [latestCV, setLatestCV] = useState(null);
   const [selectedCV, setSelectedCV] = useState(null);
@@ -52,8 +53,9 @@ function JobSeekerDashboard() {
       fetch(`http://localhost:5000/api/applications/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/cv/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/candidate-profile/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/matches/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData]) => {
+      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData, matchesData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load dashboard.");
         }
@@ -74,11 +76,16 @@ function JobSeekerDashboard() {
           throw new Error(candidateProfileData.message || "Failed to load candidate profile.");
         }
 
+        if (!matchesData.success && !matchesData.message?.includes("Candidate profile not found")) {
+          throw new Error(matchesData.message || "Failed to load job matches.");
+        }
+
         const openJobs = (jobsData.jobs || []).filter((job) => job.status === "open");
         const loadedProfile = candidateProfileData.profile;
 
         setDashboard(dashboardData.dashboard);
         setJobs(openJobs);
+        setJobMatches(matchesData.success ? matchesData.matches || [] : []);
         setApplications(applicationsData.applications || []);
         setLatestCV(cvData.cv || null);
         setCandidateProfile(loadedProfile || null);
@@ -173,6 +180,7 @@ function JobSeekerDashboard() {
       });
 
       setMessage("Candidate profile saved successfully.");
+      loadDashboardData();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -397,15 +405,15 @@ function JobSeekerDashboard() {
               </div>
 
               <div className="dashboard-card">
-                <h3>Applications</h3>
-                <strong>{applications.length}</strong>
-                <p>Your submitted applications are tracked here.</p>
+                <h3>Job Matches</h3>
+                <strong>{jobMatches.length}</strong>
+                <p>AI-style match scores based on your profile and job requirements.</p>
               </div>
 
               <div className="dashboard-card">
-                <h3>Data Source</h3>
-                <strong>MongoDB</strong>
-                <p>This dashboard is loading real backend profile, job, application, and CV data.</p>
+                <h3>Applications</h3>
+                <strong>{applications.length}</strong>
+                <p>Your submitted applications are tracked here.</p>
               </div>
             </div>
 
@@ -622,6 +630,83 @@ function JobSeekerDashboard() {
             <section className="approval-section">
               <div className="approval-header">
                 <div>
+                  <span className="eyebrow">Job Matches</span>
+                  <h2>Recommended jobs based on your profile</h2>
+                </div>
+                <strong>{jobMatches.length} matches</strong>
+              </div>
+
+              {jobMatches.length === 0 ? (
+                <div className="approval-empty">
+                  Save your candidate profile to generate job matches.
+                </div>
+              ) : (
+                <div className="approval-list">
+                  {jobMatches.map(({ job, match }) => {
+                    const alreadyApplied = hasApplied(job._id);
+
+                    return (
+                      <div className="approval-card match-card" key={job._id}>
+                        <div>
+                          <div className="match-summary-row">
+                            <h3>{job.title}</h3>
+                            <strong className="match-score-badge">{match.totalScore}% Match</strong>
+                          </div>
+
+                          <p>Company: {job.companyName}</p>
+                          <p>Location: {job.location}</p>
+                          <p>Type: {job.jobType}</p>
+                          <p>Deadline: {new Date(job.deadline).toLocaleDateString()}</p>
+                          <p>{match.explanation}</p>
+
+                          <div className="skill-pill-section">
+                            <p>Matched Skills:</p>
+                            <div className="skill-pill-list">
+                              {match.matchedSkills.length === 0 ? (
+                                <span className="skill-pill missing">None</span>
+                              ) : (
+                                match.matchedSkills.map((skill) => (
+                                  <span className="skill-pill" key={skill}>{skill}</span>
+                                ))
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="skill-pill-section">
+                            <p>Missing Skills:</p>
+                            <div className="skill-pill-list">
+                              {match.missingSkills.length === 0 ? (
+                                <span className="skill-pill">None</span>
+                              ) : (
+                                match.missingSkills.map((skill) => (
+                                  <span className="skill-pill missing" key={skill}>{skill}</span>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {alreadyApplied ? (
+                          <strong className="job-status-pill">Already Applied</strong>
+                        ) : (
+                          <button
+                            className="apply-button"
+                            onClick={() => handleApply(job)}
+                            disabled={applyingJobId === job._id}
+                          >
+                            {applyingJobId === job._id ? "Applying..." : "Apply Now"}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
                   <span className="eyebrow">My Applications</span>
                   <h2>Track your application statuses</h2>
                 </div>
@@ -649,53 +734,6 @@ function JobSeekerDashboard() {
                       <strong className="job-status-pill">{formatStatus(application.status)}</strong>
                     </div>
                   ))}
-                </div>
-              )}
-            </section>
-
-            <section className="approval-section">
-              <div className="approval-header">
-                <div>
-                  <span className="eyebrow">Open Jobs</span>
-                  <h2>Jobs you can apply for</h2>
-                </div>
-                <strong>{jobs.length} available</strong>
-              </div>
-
-              {jobs.length === 0 ? (
-                <div className="approval-empty">
-                  No open jobs available yet.
-                </div>
-              ) : (
-                <div className="approval-list">
-                  {jobs.map((job) => {
-                    const alreadyApplied = hasApplied(job._id);
-
-                    return (
-                      <div className="approval-card" key={job._id}>
-                        <div>
-                          <h3>{job.title}</h3>
-                          <p>Company: {job.companyName}</p>
-                          <p>Location: {job.location}</p>
-                          <p>Type: {job.jobType}</p>
-                          <p>Deadline: {new Date(job.deadline).toLocaleDateString()}</p>
-                          <p>Skills: {job.requiredSkills?.join(", ")}</p>
-                        </div>
-
-                        {alreadyApplied ? (
-                          <strong className="job-status-pill">Already Applied</strong>
-                        ) : (
-                          <button
-                            className="apply-button"
-                            onClick={() => handleApply(job)}
-                            disabled={applyingJobId === job._id}
-                          >
-                            {applyingJobId === job._id ? "Applying..." : "Apply Now"}
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
                 </div>
               )}
             </section>
