@@ -1,5 +1,7 @@
 const path = require("path");
 const fs = require("fs");
+const pdfParse = require("pdf-parse");
+const mammoth = require("mammoth");
 const CV = require("../models/CV");
 
 const allowedMimeTypes = [
@@ -7,6 +9,25 @@ const allowedMimeTypes = [
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
+
+const extractTextFromCV = async (filePath, mimeType) => {
+  if (mimeType === "application/pdf") {
+    const fileBuffer = await fs.promises.readFile(filePath);
+    const pdfData = await pdfParse(fileBuffer);
+    return String(pdfData.text || "").trim();
+  }
+
+  if (mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
+    const result = await mammoth.extractRawText({ path: filePath });
+    return String(result.value || "").trim();
+  }
+
+  if (mimeType === "application/msword") {
+    throw new Error("Legacy DOC extraction is not supported yet. Please upload PDF or DOCX.");
+  }
+
+  throw new Error("Unsupported file type for text extraction.");
+};
 
 const uploadCV = async (req, res) => {
   try {
@@ -33,6 +54,25 @@ const uploadCV = async (req, res) => {
       });
     }
 
+    let extractedText = "";
+    let status = "uploaded";
+    let extractionMessage = "Text extraction was not completed.";
+
+    try {
+      extractedText = await extractTextFromCV(req.file.path, req.file.mimetype);
+
+      if (extractedText.length > 0) {
+        status = "processed";
+        extractionMessage = "CV text extracted successfully.";
+      } else {
+        status = "failed";
+        extractionMessage = "CV uploaded, but no readable text was found.";
+      }
+    } catch (extractError) {
+      status = "failed";
+      extractionMessage = extractError.message;
+    }
+
     const cv = await CV.create({
       jobSeekerEmail,
       originalName: req.file.originalname,
@@ -40,12 +80,16 @@ const uploadCV = async (req, res) => {
       filePath: req.file.path,
       mimeType: req.file.mimetype,
       sizeBytes: req.file.size,
-      status: "uploaded",
+      status,
+      extractedText,
     });
 
     return res.status(201).json({
       success: true,
       message: "CV uploaded successfully.",
+      extractionMessage,
+      extractedTextLength: extractedText.length,
+      extractedTextPreview: extractedText.slice(0, 500),
       cv,
     });
   } catch (error) {
