@@ -1,5 +1,7 @@
 const Application = require("../models/Application");
 const Job = require("../models/Job");
+const CandidateProfile = require("../models/CandidateProfile");
+const { calculateJobMatch } = require("../utils/matchCalculator");
 
 const allowedStatuses = [
   "submitted",
@@ -9,6 +11,26 @@ const allowedStatuses = [
   "interview_scheduled",
   "hired",
 ];
+
+const calculateApplicationMatchScore = async (jobSeekerEmail, job) => {
+  const candidateProfile = await CandidateProfile.findOne({
+    jobSeekerEmail: jobSeekerEmail.toLowerCase().trim(),
+  });
+
+  if (!candidateProfile) {
+    return {
+      cvMatchScore: null,
+      matchDetails: null,
+    };
+  }
+
+  const matchDetails = calculateJobMatch(candidateProfile, job);
+
+  return {
+    cvMatchScore: matchDetails.totalScore,
+    matchDetails,
+  };
+};
 
 const applyToJob = async (req, res) => {
   try {
@@ -37,6 +59,8 @@ const applyToJob = async (req, res) => {
       });
     }
 
+    const { cvMatchScore } = await calculateApplicationMatchScore(jobSeekerEmail, job);
+
     const application = await Application.create({
       jobId: job._id,
       jobTitle: job.title,
@@ -44,6 +68,7 @@ const applyToJob = async (req, res) => {
       hrEmail: job.postedByEmail,
       jobSeekerEmail,
       coverLetter,
+      cvMatchScore,
       status: "submitted",
     });
 
@@ -178,9 +203,104 @@ const updateApplicationStatus = async (req, res) => {
   }
 };
 
+const recalculateApplicationMatchScore = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const application = await Application.findById(id);
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found.",
+      });
+    }
+
+    const job = await Job.findById(application.jobId);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Related job not found.",
+      });
+    }
+
+    const { cvMatchScore, matchDetails } = await calculateApplicationMatchScore(
+      application.jobSeekerEmail,
+      job
+    );
+
+    application.cvMatchScore = cvMatchScore;
+    await application.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Application match score recalculated successfully.",
+      application,
+      matchDetails,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to recalculate application match score.",
+      error: error.message,
+    });
+  }
+};
+
+const recalculateApplicationsByJobSeeker = async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Job seeker email is required.",
+      });
+    }
+
+    const applications = await Application.find({
+      jobSeekerEmail: email.toLowerCase().trim(),
+    });
+
+    const updatedApplications = [];
+
+    for (const application of applications) {
+      const job = await Job.findById(application.jobId);
+
+      if (job) {
+        const { cvMatchScore } = await calculateApplicationMatchScore(
+          application.jobSeekerEmail,
+          job
+        );
+
+        application.cvMatchScore = cvMatchScore;
+        await application.save();
+
+        updatedApplications.push(application);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Job seeker application match scores recalculated successfully.",
+      count: updatedApplications.length,
+      applications: updatedApplications,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to recalculate job seeker application match scores.",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   applyToJob,
   getApplicationsByJobSeeker,
   getApplicationsByHR,
   updateApplicationStatus,
+  recalculateApplicationMatchScore,
+  recalculateApplicationsByJobSeeker,
 };
