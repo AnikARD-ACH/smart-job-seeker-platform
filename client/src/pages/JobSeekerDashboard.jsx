@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
+import InAppNotifications from "../components/InAppNotifications";
 
 const emptyProfileForm = {
   fullName: "",
@@ -25,6 +26,8 @@ function JobSeekerDashboard() {
   const [jobMatches, setJobMatches] = useState([]);
   const [applications, setApplications] = useState([]);
   const [assessments, setAssessments] = useState([]);
+  const [interviews, setInterviews] = useState([]);
+  const [respondingInterviewId, setRespondingInterviewId] = useState("");
   const [assessmentAnswers, setAssessmentAnswers] = useState({});
   const [submittingAssessmentId, setSubmittingAssessmentId] = useState("");
   const [latestCV, setLatestCV] = useState(null);
@@ -60,8 +63,9 @@ function JobSeekerDashboard() {
       fetch(`http://localhost:5000/api/matches/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/roadmap/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/assessments/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/interviews/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData, matchesData, roadmapResponse, assessmentsData]) => {
+      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData, matchesData, roadmapResponse, assessmentsData, interviewsData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load dashboard.");
         }
@@ -94,6 +98,10 @@ function JobSeekerDashboard() {
           throw new Error(assessmentsData.message || "Failed to load assessments.");
         }
 
+        if (!interviewsData.success) {
+          throw new Error(interviewsData.message || "Failed to load interviews.");
+        }
+
         const openJobs = (jobsData.jobs || []).filter((job) => job.status === "open");
         const loadedProfile = candidateProfileData.profile;
 
@@ -103,6 +111,7 @@ function JobSeekerDashboard() {
         setRoadmapData(roadmapResponse.success ? roadmapResponse : null);
         setApplications(applicationsData.applications || []);
         setAssessments(assessmentsData.assessments || []);
+        setInterviews(interviewsData.interviews || []);
         setLatestCV(cvData.cv || null);
         setCandidateProfile(loadedProfile || null);
 
@@ -401,6 +410,50 @@ function JobSeekerDashboard() {
       setSubmittingAssessmentId("");
     }
   };
+  const respondToInterview = async (interview, candidateResponse) => {
+    try {
+      setMessage("");
+      setError("");
+      setRespondingInterviewId(`${interview._id}-${candidateResponse}`);
+
+      const storedAuth = localStorage.getItem("smart_job_seeker_auth");
+
+      if (!storedAuth) {
+        throw new Error("Login session not found.");
+      }
+
+      const auth = JSON.parse(storedAuth);
+
+      const response = await fetch(`http://localhost:5000/api/interviews/${interview._id}/respond`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobSeekerEmail: interview.jobSeekerEmail,
+          candidateResponse,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to save interview response.");
+      }
+
+      setInterviews((currentInterviews) =>
+        currentInterviews.map((item) =>
+          item._id === interview._id ? data.interview : item
+        )
+      );
+
+      setMessage(`Interview response saved: ${candidateResponse}.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRespondingInterviewId("");
+    }
+  };
   const formatStatus = (status) => {
     if (!status) {
       return "Not available";
@@ -427,7 +480,8 @@ function JobSeekerDashboard() {
   const stats = dashboard?.stats;
 
   return (
-    <main className="dashboard-page">
+        <main className="dashboard-page">
+      <InAppNotifications message={message} error={error} />
       <aside className="dashboard-sidebar">
         <h2>Job Seeker</h2>
         <nav>
@@ -451,8 +505,6 @@ function JobSeekerDashboard() {
 
         {isLoading && <p>Loading dashboard data...</p>}
 
-        {message && <p className="dashboard-success">{message}</p>}
-        {error && <p className="dashboard-error">{error}</p>}
 
         {dashboard && (
           <>
@@ -499,6 +551,12 @@ function JobSeekerDashboard() {
                 <h3>Assessments</h3>
                 <strong>{assessments.length}</strong>
                 <p>Assigned aptitude, coding, and writing tasks appear here.</p>
+              </div>
+
+              <div className="dashboard-card">
+                <h3>Interviews</h3>
+                <strong>{interviews.length}</strong>
+                <p>Scheduled interviews and meeting links appear here.</p>
               </div>
             </div>
 
@@ -928,6 +986,70 @@ function JobSeekerDashboard() {
             <section className="approval-section">
               <div className="approval-header">
                 <div>
+                  <span className="eyebrow">Interview Schedule</span>
+                  <h2>Your scheduled interviews</h2>
+                </div>
+                <strong>{interviews.length} scheduled</strong>
+              </div>
+
+              {interviews.length === 0 ? (
+                <div className="approval-empty">
+                  No interview has been scheduled yet.
+                </div>
+              ) : (
+                <div className="approval-list">
+                  {interviews.map((interview) => (
+                    <div className="approval-card" key={interview._id}>
+                      <div>
+                        <h3>{interview.jobTitle}</h3>
+                        <p>Company: {interview.companyName}</p>
+                        <p>HR Email: {interview.hrEmail}</p>
+                        <p>Time: {new Date(interview.scheduledAt).toLocaleString()}</p>
+                        <p>Duration: {interview.durationMinutes} minutes</p>
+                        <p>Mode: {interview.mode}</p>
+                        <p>Status: {formatStatus(interview.status)}</p>
+                        <p>Your Response: {formatStatus(interview.candidateResponse)}</p>
+                        <p>Notes: {interview.notes || "No notes added."}</p>
+
+                        {interview.meetingLink && (
+                          <a
+                            className="view-cv-link"
+                            href={interview.meetingLink}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open Meeting Link
+                          </a>
+                        )}
+
+                        {interview.candidateResponse === "pending" && (
+                          <div className="status-action-row">
+                            <button
+                              onClick={() => respondToInterview(interview, "accepted")}
+                              disabled={respondingInterviewId === `${interview._id}-accepted`}
+                            >
+                              Accept
+                            </button>
+
+                            <button
+                              onClick={() => respondToInterview(interview, "declined")}
+                              disabled={respondingInterviewId === `${interview._id}-declined`}
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
+                      <strong className="job-status-pill">{formatStatus(interview.status)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
                   <span className="eyebrow">Assigned Assessments</span>
                   <h2>Complete your recruitment tasks</h2>
                 </div>
@@ -1035,6 +1157,10 @@ function JobSeekerDashboard() {
 }
 
 export default JobSeekerDashboard;
+
+
+
+
 
 
 

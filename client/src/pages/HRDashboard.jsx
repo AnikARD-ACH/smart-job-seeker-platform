@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
+import InAppNotifications from "../components/InAppNotifications";
 
 function HRDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [assessments, setAssessments] = useState([]);
+  const [interviews, setInterviews] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -14,6 +16,7 @@ function HRDashboard() {
   const [assigningAssessmentType, setAssigningAssessmentType] = useState("");
   const [reviewingAssessmentId, setReviewingAssessmentId] = useState("");
   const [assessmentReviews, setAssessmentReviews] = useState({});
+  const [schedulingInterviewId, setSchedulingInterviewId] = useState("");
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobFilter, setJobFilter] = useState("all");
@@ -37,8 +40,9 @@ function HRDashboard() {
       fetch(`http://localhost:5000/api/jobs/hr?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/applications/hr?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/assessments/hr?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/interviews/hr?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData, applicationsData, assessmentsData]) => {
+      .then(([dashboardData, jobsData, applicationsData, assessmentsData, interviewsData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load HR dashboard.");
         }
@@ -55,12 +59,17 @@ function HRDashboard() {
           throw new Error(assessmentsData.message || "Failed to load HR assessments.");
         }
 
+        if (!interviewsData.success) {
+          throw new Error(interviewsData.message || "Failed to load HR interviews.");
+        }
+
         const loadedApplications = applicationsData.applications || [];
 
         setDashboard(dashboardData.dashboard);
         setJobs(jobsData.jobs || []);
         setApplications(loadedApplications);
         setAssessments(assessmentsData.assessments || []);
+        setInterviews(interviewsData.interviews || []);
 
         if (loadedApplications.length > 0) {
           setSelectedApplicationId(loadedApplications[0]._id);
@@ -247,6 +256,69 @@ function HRDashboard() {
       setReviewingAssessmentId("");
     }
   };
+  const scheduleInterview = async (application) => {
+    try {
+      setMessage("");
+      setError("");
+      setSchedulingInterviewId(application._id);
+
+      const existingInterview = interviews.find(
+        (interview) => interview.applicationId === application._id && interview.status === "scheduled"
+      );
+
+      if (existingInterview) {
+        throw new Error("An interview is already scheduled for this application.");
+      }
+
+      const storedAuth = localStorage.getItem("smart_job_seeker_auth");
+
+      if (!storedAuth) {
+        throw new Error("Login session not found.");
+      }
+
+      const auth = JSON.parse(storedAuth);
+
+      const response = await fetch("http://localhost:5000/api/interviews/schedule", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          applicationId: application._id,
+          hrEmail: auth.email,
+          scheduledAt: "2026-08-20T11:00:00",
+          durationMinutes: 30,
+          mode: "online",
+          meetingLink: "https://meet.google.com/demo-interview-link",
+          notes: "Interview scheduled for role discussion, project review, and final HR screening.",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to schedule interview.");
+      }
+
+      setInterviews((currentInterviews) => [
+        data.interview,
+        ...currentInterviews,
+      ]);
+
+      setApplications((currentApplications) =>
+        currentApplications.map((item) =>
+          item._id === application._id ? data.application : item
+        )
+      );
+
+      setSelectedApplication(data.application);
+      setMessage(`Interview scheduled for ${application.jobSeekerEmail}.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSchedulingInterviewId("");
+    }
+  };
   const getScoreLabel = (score) => {
     return typeof score === "number" ? `${score}%` : "Not calculated";
   };
@@ -307,7 +379,8 @@ function HRDashboard() {
   const stats = dashboard?.stats;
 
   return (
-    <main className="dashboard-page">
+        <main className="dashboard-page">
+      <InAppNotifications message={message} error={error} />
       <aside className="dashboard-sidebar">
         <h2>HR Panel</h2>
         <nav>
@@ -331,8 +404,6 @@ function HRDashboard() {
 
         {isLoading && <p>Loading dashboard data...</p>}
 
-        {message && <p className="dashboard-success">{message}</p>}
-        {error && <p className="dashboard-error">{error}</p>}
 
         {dashboard && (
           <>
@@ -571,6 +642,20 @@ function HRDashboard() {
                       </div>
 
                       <div className="detail-block">
+                        <h3>Schedule Interview</h3>
+                        <p>Create an interview slot for this candidate using the demo meeting link.</p>
+
+                        <div className="status-action-row">
+                          <button
+                            onClick={() => scheduleInterview(selectedApplication)}
+                            disabled={schedulingInterviewId === selectedApplication._id}
+                          >
+                            {schedulingInterviewId === selectedApplication._id ? "Scheduling..." : "Schedule Interview"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="detail-block">
                         <h3>Assign Assessment</h3>
                         <p>Send an assessment task to this candidate for the next recruitment stage.</p>
 
@@ -670,6 +755,51 @@ function HRDashboard() {
               )}
             </section>
 
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
+                  <span className="eyebrow">Interviews</span>
+                  <h2>Scheduled candidate interviews</h2>
+                </div>
+                <strong>{interviews.length} scheduled</strong>
+              </div>
+
+              {interviews.length === 0 ? (
+                <div className="approval-empty">
+                  No interviews scheduled yet.
+                </div>
+              ) : (
+                <div className="approval-list">
+                  {interviews.map((interview) => (
+                    <div className="approval-card" key={interview._id}>
+                      <div>
+                        <h3>{interview.jobTitle}</h3>
+                        <p>Candidate: {interview.jobSeekerEmail}</p>
+                        <p>Company: {interview.companyName}</p>
+                        <p>Time: {new Date(interview.scheduledAt).toLocaleString()}</p>
+                        <p>Duration: {interview.durationMinutes} minutes</p>
+                        <p>Mode: {interview.mode}</p>
+                        <p>Candidate Response: {formatStatus(interview.candidateResponse)}</p>
+                        <p>Notes: {interview.notes || "No notes added."}</p>
+
+                        {interview.meetingLink && (
+                          <a
+                            className="view-cv-link"
+                            href={interview.meetingLink}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            Open Meeting Link
+                          </a>
+                        )}
+                      </div>
+
+                      <strong className="job-status-pill">{formatStatus(interview.status)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
             <section className="approval-section">
               <div className="approval-header">
                 <div>
@@ -803,6 +933,9 @@ function HRDashboard() {
 }
 
 export default HRDashboard;
+
+
+
 
 
 
