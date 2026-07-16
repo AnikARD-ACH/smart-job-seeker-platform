@@ -189,7 +189,7 @@ function HRDashboard() {
         <span className="eyebrow">Recruiter Dashboard</span>
         <h1>Manage hiring with AI support</h1>
         <p>
-          Post jobs, review applicants, check CV-job match scores, assign tests, and schedule interviews.
+          Post jobs, review applicants, check profile-plus-CV match scores, assign tests, and schedule interviews.
         </p>
 
         {isLoading && <p>Loading dashboard data...</p>}
@@ -308,7 +308,7 @@ function HRDashboard() {
                   </label>
 
                   <label className="filter-field">
-                    <span>Minimum score</span>
+                    <span>Minimum profile + CV score</span>
                     <select value={minScoreFilter} onChange={(event) => setMinScoreFilter(event.target.value)}>
                       <option value="all">Any score</option>
                       <option value="50">50% and above</option>
@@ -389,7 +389,7 @@ function HRDashboard() {
                       </div>
 
                       <div className="score-large">
-                        <span>CV Match Score</span>
+                        <span>Profile + CV Match Score</span>
                         <strong>{getScoreLabel(selectedApplication.cvMatchScore)}</strong>
                       </div>
 
@@ -423,6 +423,14 @@ function HRDashboard() {
                       <div className="detail-block">
                         <h3>HR Remarks</h3>
                         <p>{selectedApplication.remarks || "No remarks yet"}</p>
+                      </div>
+
+                      <div className="detail-block">
+                        <h3>Scoring Note</h3>
+                        <p>
+                          This score now combines candidate profile skills, extracted CV text,
+                          preferred job type, and preferred location.
+                        </p>
                       </div>
 
                       <div className="status-action-row">
@@ -537,3 +545,4 @@ function HRDashboard() {
 }
 
 export default HRDashboard;
+

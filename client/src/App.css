@@ -1124,3 +1124,29 @@ a {
 .detail-grid {
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
 }
+
+.match-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 0.8rem;
+  margin: 1rem 0;
+}
+
+.match-breakdown-grid div {
+  border-radius: 16px;
+  padding: 0.9rem;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.match-breakdown-grid span {
+  color: var(--muted-text);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.match-breakdown-grid strong {
+  font-size: 1.05rem;
+}

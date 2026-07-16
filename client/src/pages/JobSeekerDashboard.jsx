@@ -407,7 +407,7 @@ function JobSeekerDashboard() {
               <div className="dashboard-card">
                 <h3>Job Matches</h3>
                 <strong>{jobMatches.length}</strong>
-                <p>AI-style match scores based on your profile and job requirements.</p>
+                <p>AI-style match scores based on your profile, extracted CV text, and job requirements.</p>
               </div>
 
               <div className="dashboard-card">
@@ -631,7 +631,7 @@ function JobSeekerDashboard() {
               <div className="approval-header">
                 <div>
                   <span className="eyebrow">Job Matches</span>
-                  <h2>Recommended jobs based on your profile</h2>
+                  <h2>Recommended jobs based on your profile and CV</h2>
                 </div>
                 <strong>{jobMatches.length} matches</strong>
               </div>
@@ -659,6 +659,33 @@ function JobSeekerDashboard() {
                           <p>Deadline: {new Date(job.deadline).toLocaleDateString()}</p>
                           <p>{match.explanation}</p>
 
+                          <div className="match-breakdown-grid">
+                            <div>
+                              <span>Profile skills</span>
+                              <strong>{match.skillScore ?? 0}/50</strong>
+                            </div>
+
+                            <div>
+                              <span>CV keywords</span>
+                              <strong>{match.cvKeywordScore ?? 0}/20</strong>
+                            </div>
+
+                            <div>
+                              <span>Job type</span>
+                              <strong>{match.jobTypeScore ?? 0}/15</strong>
+                            </div>
+
+                            <div>
+                              <span>Location</span>
+                              <strong>{match.locationScore ?? 0}/15</strong>
+                            </div>
+                          </div>
+
+                          <p>
+                            CV used in scoring:{" "}
+                            {match.cvUsed ? `Yes (${match.cvStatus})` : "No readable CV text found"}
+                          </p>
+
                           <div className="skill-pill-section">
                             <p>Matched Skills:</p>
                             <div className="skill-pill-list">
@@ -680,6 +707,19 @@ function JobSeekerDashboard() {
                               ) : (
                                 match.missingSkills.map((skill) => (
                                   <span className="skill-pill missing" key={skill}>{skill}</span>
+                                ))
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="skill-pill-section">
+                            <p>CV Matched Keywords:</p>
+                            <div className="skill-pill-list">
+                              {!match.cvMatchedKeywords || match.cvMatchedKeywords.length === 0 ? (
+                                <span className="skill-pill missing">None</span>
+                              ) : (
+                                match.cvMatchedKeywords.slice(0, 12).map((keyword) => (
+                                  <span className="skill-pill" key={keyword}>{keyword}</span>
                                 ))
                               )}
                             </div>
@@ -727,7 +767,7 @@ function JobSeekerDashboard() {
                         <p>HR Email: {application.hrEmail}</p>
                         <p>Applied: {new Date(application.createdAt).toLocaleString()}</p>
                         <p>Cover Letter: {application.coverLetter || "Not provided"}</p>
-                        <p>CV Match Score: {application.cvMatchScore ?? "Not calculated yet"}</p>
+                        <p>Profile + CV Match Score: {application.cvMatchScore ?? "Not calculated yet"}</p>
                         <p>Remarks: {application.remarks || "No remarks yet"}</p>
                       </div>
 
@@ -745,3 +785,4 @@ function JobSeekerDashboard() {
 }
 
 export default JobSeekerDashboard;
+

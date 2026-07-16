@@ -1,6 +1,7 @@
 const Application = require("../models/Application");
 const Job = require("../models/Job");
 const CandidateProfile = require("../models/CandidateProfile");
+const CV = require("../models/CV");
 const { calculateJobMatch } = require("../utils/matchCalculator");
 
 const allowedStatuses = [
@@ -13,8 +14,10 @@ const allowedStatuses = [
 ];
 
 const calculateApplicationMatchScore = async (jobSeekerEmail, job) => {
+  const normalizedEmail = jobSeekerEmail.toLowerCase().trim();
+
   const candidateProfile = await CandidateProfile.findOne({
-    jobSeekerEmail: jobSeekerEmail.toLowerCase().trim(),
+    jobSeekerEmail: normalizedEmail,
   });
 
   if (!candidateProfile) {
@@ -24,7 +27,11 @@ const calculateApplicationMatchScore = async (jobSeekerEmail, job) => {
     };
   }
 
-  const matchDetails = calculateJobMatch(candidateProfile, job);
+  const latestCV = await CV.findOne({
+    jobSeekerEmail: normalizedEmail,
+  }).sort({ createdAt: -1 });
+
+  const matchDetails = calculateJobMatch(candidateProfile, job, latestCV);
 
   return {
     cvMatchScore: matchDetails.totalScore,

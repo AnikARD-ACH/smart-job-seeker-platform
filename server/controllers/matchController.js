@@ -1,5 +1,6 @@
 const CandidateProfile = require("../models/CandidateProfile");
 const Job = require("../models/Job");
+const CV = require("../models/CV");
 const { calculateJobMatch } = require("../utils/matchCalculator");
 
 const getJobMatchesByCandidate = async (req, res) => {
@@ -13,8 +14,10 @@ const getJobMatchesByCandidate = async (req, res) => {
       });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     const candidateProfile = await CandidateProfile.findOne({
-      jobSeekerEmail: email.toLowerCase().trim(),
+      jobSeekerEmail: normalizedEmail,
     });
 
     if (!candidateProfile) {
@@ -24,12 +27,16 @@ const getJobMatchesByCandidate = async (req, res) => {
       });
     }
 
+    const latestCV = await CV.findOne({
+      jobSeekerEmail: normalizedEmail,
+    }).sort({ createdAt: -1 });
+
     const jobs = await Job.find({
       status: "open",
     }).sort({ createdAt: -1 });
 
     const matches = jobs.map((job) => {
-      const match = calculateJobMatch(candidateProfile, job);
+      const match = calculateJobMatch(candidateProfile, job, latestCV);
 
       return {
         job,
@@ -49,6 +56,15 @@ const getJobMatchesByCandidate = async (req, res) => {
         preferredJobType: candidateProfile.preferredJobType,
         preferredLocation: candidateProfile.preferredLocation,
       },
+      cv: latestCV
+        ? {
+            id: latestCV._id,
+            originalName: latestCV.originalName,
+            status: latestCV.status,
+            extractedTextLength: latestCV.extractedText?.length || 0,
+            usedInScoring: Boolean(latestCV.extractedText),
+          }
+        : null,
       matches,
     });
   } catch (error) {
