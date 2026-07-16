@@ -12,6 +12,8 @@ function HRDashboard() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingApplicationId, setUpdatingApplicationId] = useState("");
   const [assigningAssessmentType, setAssigningAssessmentType] = useState("");
+  const [reviewingAssessmentId, setReviewingAssessmentId] = useState("");
+  const [assessmentReviews, setAssessmentReviews] = useState({});
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobFilter, setJobFilter] = useState("all");
@@ -184,6 +186,65 @@ function HRDashboard() {
       setError(err.message);
     } finally {
       setAssigningAssessmentType("");
+    }
+  };
+  const updateAssessmentReviewField = (assessmentId, field, value) => {
+    setAssessmentReviews((currentReviews) => ({
+      ...currentReviews,
+      [assessmentId]: {
+        ...(currentReviews[assessmentId] || {}),
+        [field]: value,
+      },
+    }));
+  };
+
+  const reviewAssessment = async (assessment) => {
+    try {
+      setMessage("");
+      setError("");
+      setReviewingAssessmentId(assessment._id);
+
+      const reviewData = assessmentReviews[assessment._id] || {};
+      const score = Number(reviewData.score);
+      const feedback = reviewData.feedback?.trim() || "";
+
+      if (Number.isNaN(score) || score < 0 || score > 100) {
+        throw new Error("Score must be a number between 0 and 100.");
+      }
+
+      if (!feedback) {
+        throw new Error("Write HR feedback before marking assessment as reviewed.");
+      }
+
+      const response = await fetch(`http://localhost:5000/api/assessments/${assessment._id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: "reviewed",
+          score,
+          feedback,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to review assessment.");
+      }
+
+      setAssessments((currentAssessments) =>
+        currentAssessments.map((item) =>
+          item._id === assessment._id ? data.assessment : item
+        )
+      );
+
+      setMessage("Assessment reviewed successfully.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setReviewingAssessmentId("");
     }
   };
   const getScoreLabel = (score) => {
@@ -634,6 +695,66 @@ function HRDashboard() {
                         <p>Duration: {assessment.durationMinutes} minutes</p>
                         <p>Due: {assessment.dueDate ? new Date(assessment.dueDate).toLocaleDateString() : "Not set"}</p>
                         <p>Status: {formatStatus(assessment.status)}</p>
+
+                        {assessment.submittedAnswer ? (
+                          <div className="assessment-answer-box">
+                            <h3>Submitted Answer</h3>
+                            <p>{assessment.submittedAnswer}</p>
+
+                            {assessment.status === "reviewed" ? (
+                              <>
+                                <p>Score: {assessment.score}/100</p>
+                                <p>Feedback: {assessment.feedback}</p>
+                              </>
+                            ) : (
+                              <div className="assessment-review-box">
+                                <label htmlFor={`score-${assessment._id}`}>Score out of 100</label>
+                                <input
+                                  id={`score-${assessment._id}`}
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  value={assessmentReviews[assessment._id]?.score || ""}
+                                  onChange={(event) =>
+                                    updateAssessmentReviewField(
+                                      assessment._id,
+                                      "score",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Example: 85"
+                                />
+
+                                <label htmlFor={`feedback-${assessment._id}`}>HR Feedback</label>
+                                <textarea
+                                  id={`feedback-${assessment._id}`}
+                                  value={assessmentReviews[assessment._id]?.feedback || ""}
+                                  onChange={(event) =>
+                                    updateAssessmentReviewField(
+                                      assessment._id,
+                                      "feedback",
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Write feedback for the candidate..."
+                                  rows="4"
+                                />
+
+                                <button
+                                  onClick={() => reviewAssessment(assessment)}
+                                  disabled={reviewingAssessmentId === assessment._id}
+                                >
+                                  {reviewingAssessmentId === assessment._id ? "Reviewing..." : "Mark Reviewed"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="assessment-answer-box">
+                            <h3>Submitted Answer</h3>
+                            <p>No answer submitted yet.</p>
+                          </div>
+                        )}
                       </div>
 
                       <strong className="job-status-pill">{formatStatus(assessment.status)}</strong>
@@ -682,5 +803,6 @@ function HRDashboard() {
 }
 
 export default HRDashboard;
+
 
 

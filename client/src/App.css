@@ -1223,3 +1223,42 @@ a {
   flex-direction: column;
   gap: 0.3rem;
 }
+
+.assessment-submit-box,
+.assessment-answer-box,
+.assessment-review-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.assessment-submit-box label,
+.assessment-review-box label {
+  font-weight: 800;
+}
+
+.assessment-submit-box textarea,
+.assessment-review-box textarea,
+.assessment-review-box input {
+  width: 100%;
+  border: 1px solid var(--border-color);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-color);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  font: inherit;
+}
+
+.assessment-submit-box textarea,
+.assessment-review-box textarea {
+  resize: vertical;
+}
+
+.assessment-submit-box button,
+.assessment-review-box button {
+  align-self: flex-start;
+}

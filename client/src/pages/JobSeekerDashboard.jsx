@@ -25,6 +25,8 @@ function JobSeekerDashboard() {
   const [jobMatches, setJobMatches] = useState([]);
   const [applications, setApplications] = useState([]);
   const [assessments, setAssessments] = useState([]);
+  const [assessmentAnswers, setAssessmentAnswers] = useState({});
+  const [submittingAssessmentId, setSubmittingAssessmentId] = useState("");
   const [latestCV, setLatestCV] = useState(null);
   const [roadmapData, setRoadmapData] = useState(null);
   const [selectedCV, setSelectedCV] = useState(null);
@@ -338,6 +340,67 @@ function JobSeekerDashboard() {
     return applications.some((application) => application.jobId === jobId);
   };
 
+  const updateAssessmentAnswer = (assessmentId, value) => {
+    setAssessmentAnswers((currentAnswers) => ({
+      ...currentAnswers,
+      [assessmentId]: value,
+    }));
+  };
+
+  const submitAssessmentAnswer = async (assessment) => {
+    try {
+      setMessage("");
+      setError("");
+      setSubmittingAssessmentId(assessment._id);
+
+      const storedAuth = localStorage.getItem("smart_job_seeker_auth");
+
+      if (!storedAuth) {
+        throw new Error("Login session not found.");
+      }
+
+      const auth = JSON.parse(storedAuth);
+      const submittedAnswer = assessmentAnswers[assessment._id]?.trim();
+
+      if (!submittedAnswer) {
+        throw new Error("Write your assessment answer before submitting.");
+      }
+
+      const response = await fetch(`http://localhost:5000/api/assessments/${assessment._id}/submit`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          jobSeekerEmail: auth.email,
+          submittedAnswer,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to submit assessment answer.");
+      }
+
+      setAssessments((currentAssessments) =>
+        currentAssessments.map((item) =>
+          item._id === assessment._id ? data.assessment : item
+        )
+      );
+
+      setAssessmentAnswers((currentAnswers) => ({
+        ...currentAnswers,
+        [assessment._id]: "",
+      }));
+
+      setMessage("Assessment answer submitted successfully.");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmittingAssessmentId("");
+    }
+  };
   const formatStatus = (status) => {
     if (!status) {
       return "Not available";
@@ -888,6 +951,41 @@ function JobSeekerDashboard() {
                         <p>Due: {assessment.dueDate ? new Date(assessment.dueDate).toLocaleDateString() : "Not set"}</p>
                         <p>Status: {formatStatus(assessment.status)}</p>
                         <p>Instructions: {assessment.instructions}</p>
+
+                        {assessment.submittedAnswer ? (
+                          <div className="assessment-answer-box">
+                            <h3>Your Submitted Answer</h3>
+                            <p>{assessment.submittedAnswer}</p>
+
+                            {assessment.score !== null && (
+                              <p>Score: {assessment.score}/100</p>
+                            )}
+
+                            {assessment.feedback && (
+                              <p>HR Feedback: {assessment.feedback}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="assessment-submit-box">
+                            <label htmlFor={`answer-${assessment._id}`}>Your Answer</label>
+                            <textarea
+                              id={`answer-${assessment._id}`}
+                              value={assessmentAnswers[assessment._id] || ""}
+                              onChange={(event) =>
+                                updateAssessmentAnswer(assessment._id, event.target.value)
+                              }
+                              placeholder="Write your assessment answer here..."
+                              rows="5"
+                            />
+
+                            <button
+                              onClick={() => submitAssessmentAnswer(assessment)}
+                              disabled={submittingAssessmentId === assessment._id}
+                            >
+                              {submittingAssessmentId === assessment._id ? "Submitting..." : "Submit Answer"}
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       <strong className="job-status-pill">{formatStatus(assessment.status)}</strong>
@@ -937,6 +1035,7 @@ function JobSeekerDashboard() {
 }
 
 export default JobSeekerDashboard;
+
 
 
 
