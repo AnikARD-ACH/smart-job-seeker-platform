@@ -24,6 +24,7 @@ function JobSeekerDashboard() {
   const [jobs, setJobs] = useState([]);
   const [jobMatches, setJobMatches] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [assessments, setAssessments] = useState([]);
   const [latestCV, setLatestCV] = useState(null);
   const [roadmapData, setRoadmapData] = useState(null);
   const [selectedCV, setSelectedCV] = useState(null);
@@ -56,8 +57,9 @@ function JobSeekerDashboard() {
       fetch(`http://localhost:5000/api/candidate-profile/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/matches/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/roadmap/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/assessments/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData, matchesData, roadmapResponse]) => {
+      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData, matchesData, roadmapResponse, assessmentsData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load dashboard.");
         }
@@ -86,6 +88,10 @@ function JobSeekerDashboard() {
           throw new Error(roadmapResponse.message || "Failed to load skill roadmap.");
         }
 
+        if (!assessmentsData.success) {
+          throw new Error(assessmentsData.message || "Failed to load assessments.");
+        }
+
         const openJobs = (jobsData.jobs || []).filter((job) => job.status === "open");
         const loadedProfile = candidateProfileData.profile;
 
@@ -94,6 +100,7 @@ function JobSeekerDashboard() {
         setJobMatches(matchesData.success ? matchesData.matches || [] : []);
         setRoadmapData(roadmapResponse.success ? roadmapResponse : null);
         setApplications(applicationsData.applications || []);
+        setAssessments(assessmentsData.assessments || []);
         setLatestCV(cvData.cv || null);
         setCandidateProfile(loadedProfile || null);
 
@@ -423,6 +430,12 @@ function JobSeekerDashboard() {
                 <h3>Applications</h3>
                 <strong>{applications.length}</strong>
                 <p>Your submitted applications are tracked here.</p>
+              </div>
+
+              <div className="dashboard-card">
+                <h3>Assessments</h3>
+                <strong>{assessments.length}</strong>
+                <p>Assigned aptitude, coding, and writing tasks appear here.</p>
               </div>
             </div>
 
@@ -852,6 +865,40 @@ function JobSeekerDashboard() {
             <section className="approval-section">
               <div className="approval-header">
                 <div>
+                  <span className="eyebrow">Assigned Assessments</span>
+                  <h2>Complete your recruitment tasks</h2>
+                </div>
+                <strong>{assessments.length} assigned</strong>
+              </div>
+
+              {assessments.length === 0 ? (
+                <div className="approval-empty">
+                  No assessment has been assigned yet.
+                </div>
+              ) : (
+                <div className="approval-list">
+                  {assessments.map((assessment) => (
+                    <div className="approval-card" key={assessment._id}>
+                      <div>
+                        <h3>{assessment.title}</h3>
+                        <p>Job: {assessment.jobTitle}</p>
+                        <p>Company: {assessment.companyName}</p>
+                        <p>Type: {assessment.assessmentType}</p>
+                        <p>Duration: {assessment.durationMinutes} minutes</p>
+                        <p>Due: {assessment.dueDate ? new Date(assessment.dueDate).toLocaleDateString() : "Not set"}</p>
+                        <p>Status: {formatStatus(assessment.status)}</p>
+                        <p>Instructions: {assessment.instructions}</p>
+                      </div>
+
+                      <strong className="job-status-pill">{formatStatus(assessment.status)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
                   <span className="eyebrow">My Applications</span>
                   <h2>Track your application statuses</h2>
                 </div>
@@ -890,5 +937,6 @@ function JobSeekerDashboard() {
 }
 
 export default JobSeekerDashboard;
+
 
 

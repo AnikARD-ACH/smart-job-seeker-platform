@@ -12,6 +12,7 @@ const cvRoutes = require("./routes/cvRoutes");
 const candidateProfileRoutes = require("./routes/candidateProfileRoutes");
 const matchRoutes = require("./routes/matchRoutes");
 const roadmapRoutes = require("./routes/roadmapRoutes");
+const assessmentRoutes = require("./routes/assessmentRoutes");
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use("/api/cv", cvRoutes);
 app.use("/api/candidate-profile", candidateProfileRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/roadmap", roadmapRoutes);
+app.use("/api/assessments", assessmentRoutes);
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);

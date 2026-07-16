@@ -6,10 +6,12 @@ function HRDashboard() {
   const [dashboard, setDashboard] = useState(null);
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [assessments, setAssessments] = useState([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [updatingApplicationId, setUpdatingApplicationId] = useState("");
+  const [assigningAssessmentType, setAssigningAssessmentType] = useState("");
   const [selectedApplicationId, setSelectedApplicationId] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [jobFilter, setJobFilter] = useState("all");
@@ -32,8 +34,9 @@ function HRDashboard() {
       fetch(`http://localhost:5000/api/dashboard/hr?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/jobs/hr?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/applications/hr?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/assessments/hr?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData, applicationsData]) => {
+      .then(([dashboardData, jobsData, applicationsData, assessmentsData]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load HR dashboard.");
         }
@@ -46,11 +49,16 @@ function HRDashboard() {
           throw new Error(applicationsData.message || "Failed to load HR applications.");
         }
 
+        if (!assessmentsData.success) {
+          throw new Error(assessmentsData.message || "Failed to load HR assessments.");
+        }
+
         const loadedApplications = applicationsData.applications || [];
 
         setDashboard(dashboardData.dashboard);
         setJobs(jobsData.jobs || []);
         setApplications(loadedApplications);
+        setAssessments(assessmentsData.assessments || []);
 
         if (loadedApplications.length > 0) {
           setSelectedApplicationId(loadedApplications[0]._id);
@@ -110,6 +118,74 @@ function HRDashboard() {
       .toUpperCase();
   };
 
+  const assignAssessment = async (application, assessmentType) => {
+    try {
+      setMessage("");
+      setError("");
+      setAssigningAssessmentType(`${application._id}-${assessmentType}`);
+
+      const storedAuth = localStorage.getItem("smart_job_seeker_auth");
+
+      if (!storedAuth) {
+        throw new Error("Login session not found.");
+      }
+
+      const auth = JSON.parse(storedAuth);
+
+      const assessmentDetails = {
+        aptitude: {
+          title: "Aptitude Screening Test",
+          instructions: "Complete a short aptitude assessment covering logical reasoning, basic maths, and problem-solving.",
+          durationMinutes: 30,
+        },
+        coding: {
+          title: "Frontend React API Task",
+          instructions: "Build a small React component that fetches job data from an API and displays job title, company, skills, and application status.",
+          durationMinutes: 60,
+        },
+        writing: {
+          title: "Professional Writing Task",
+          instructions: "Write a short professional response explaining why you are suitable for this role and how your skills match the job requirements.",
+          durationMinutes: 40,
+        },
+      };
+
+      const selectedDetails = assessmentDetails[assessmentType];
+
+      const response = await fetch("http://localhost:5000/api/assessments/assign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          applicationId: application._id,
+          hrEmail: auth.email,
+          assessmentType,
+          title: selectedDetails.title,
+          instructions: selectedDetails.instructions,
+          durationMinutes: selectedDetails.durationMinutes,
+          dueDate: "2026-08-15",
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to assign assessment.");
+      }
+
+      setAssessments((currentAssessments) => [
+        data.assessment,
+        ...currentAssessments,
+      ]);
+
+      setMessage(`${selectedDetails.title} assigned to ${application.jobSeekerEmail}.`);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAssigningAssessmentType("");
+    }
+  };
   const getScoreLabel = (score) => {
     return typeof score === "number" ? `${score}%` : "Not calculated";
   };
@@ -433,6 +509,34 @@ function HRDashboard() {
                         </p>
                       </div>
 
+                      <div className="detail-block">
+                        <h3>Assign Assessment</h3>
+                        <p>Send an assessment task to this candidate for the next recruitment stage.</p>
+
+                        <div className="status-action-row">
+                          <button
+                            onClick={() => assignAssessment(selectedApplication, "aptitude")}
+                            disabled={assigningAssessmentType === `${selectedApplication._id}-aptitude`}
+                          >
+                            Aptitude Test
+                          </button>
+
+                          <button
+                            onClick={() => assignAssessment(selectedApplication, "coding")}
+                            disabled={assigningAssessmentType === `${selectedApplication._id}-coding`}
+                          >
+                            Coding Task
+                          </button>
+
+                          <button
+                            onClick={() => assignAssessment(selectedApplication, "writing")}
+                            disabled={assigningAssessmentType === `${selectedApplication._id}-writing`}
+                          >
+                            Writing Task
+                          </button>
+                        </div>
+                      </div>
+
                       <div className="status-action-row">
                         <button
                           onClick={() =>
@@ -508,6 +612,39 @@ function HRDashboard() {
             <section className="approval-section">
               <div className="approval-header">
                 <div>
+                  <span className="eyebrow">Assessments</span>
+                  <h2>Assigned candidate assessments</h2>
+                </div>
+                <strong>{assessments.length} assigned</strong>
+              </div>
+
+              {assessments.length === 0 ? (
+                <div className="approval-empty">
+                  No assessments assigned yet.
+                </div>
+              ) : (
+                <div className="approval-list">
+                  {assessments.map((assessment) => (
+                    <div className="approval-card" key={assessment._id}>
+                      <div>
+                        <h3>{assessment.title}</h3>
+                        <p>Candidate: {assessment.jobSeekerEmail}</p>
+                        <p>Job: {assessment.jobTitle}</p>
+                        <p>Type: {assessment.assessmentType}</p>
+                        <p>Duration: {assessment.durationMinutes} minutes</p>
+                        <p>Due: {assessment.dueDate ? new Date(assessment.dueDate).toLocaleDateString() : "Not set"}</p>
+                        <p>Status: {formatStatus(assessment.status)}</p>
+                      </div>
+
+                      <strong className="job-status-pill">{formatStatus(assessment.status)}</strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
                   <span className="eyebrow">Posted Jobs</span>
                   <h2>Your job posts</h2>
                 </div>
@@ -545,4 +682,5 @@ function HRDashboard() {
 }
 
 export default HRDashboard;
+
 
