@@ -25,6 +25,7 @@ function JobSeekerDashboard() {
   const [jobMatches, setJobMatches] = useState([]);
   const [applications, setApplications] = useState([]);
   const [latestCV, setLatestCV] = useState(null);
+  const [roadmapData, setRoadmapData] = useState(null);
   const [selectedCV, setSelectedCV] = useState(null);
   const cvFileInputRef = useRef(null);
   const [message, setMessage] = useState("");
@@ -54,8 +55,9 @@ function JobSeekerDashboard() {
       fetch(`http://localhost:5000/api/cv/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/candidate-profile/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
       fetch(`http://localhost:5000/api/matches/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
+      fetch(`http://localhost:5000/api/roadmap/job-seeker?email=${encodedEmail}`).then((res) => res.json()),
     ])
-      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData, matchesData]) => {
+      .then(([dashboardData, jobsData, applicationsData, cvData, candidateProfileData, matchesData, roadmapResponse]) => {
         if (!dashboardData.success) {
           throw new Error(dashboardData.message || "Failed to load dashboard.");
         }
@@ -80,12 +82,17 @@ function JobSeekerDashboard() {
           throw new Error(matchesData.message || "Failed to load job matches.");
         }
 
+        if (!roadmapResponse.success && !roadmapResponse.message?.includes("Candidate profile not found")) {
+          throw new Error(roadmapResponse.message || "Failed to load skill roadmap.");
+        }
+
         const openJobs = (jobsData.jobs || []).filter((job) => job.status === "open");
         const loadedProfile = candidateProfileData.profile;
 
         setDashboard(dashboardData.dashboard);
         setJobs(openJobs);
         setJobMatches(matchesData.success ? matchesData.matches || [] : []);
+        setRoadmapData(roadmapResponse.success ? roadmapResponse : null);
         setApplications(applicationsData.applications || []);
         setLatestCV(cvData.cv || null);
         setCandidateProfile(loadedProfile || null);
@@ -276,6 +283,7 @@ function JobSeekerDashboard() {
       }
 
       setMessage("CV uploaded successfully.");
+      loadDashboardData();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -311,6 +319,7 @@ function JobSeekerDashboard() {
       }
 
       setMessage("CV removed successfully.");
+      loadDashboardData();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -747,6 +756,102 @@ function JobSeekerDashboard() {
             <section className="approval-section">
               <div className="approval-header">
                 <div>
+                  <span className="eyebrow">Skill Gap Roadmap</span>
+                  <h2>Improve your readiness for matching jobs</h2>
+                </div>
+                <strong>{roadmapData?.summary?.missingSkillCount ?? 0} gaps</strong>
+              </div>
+
+              {!roadmapData ? (
+                <div className="approval-empty">
+                  Save your candidate profile to generate a skill roadmap.
+                </div>
+              ) : (
+                <div className="roadmap-panel">
+                  <div className="roadmap-summary-grid">
+                    <div className="roadmap-card">
+                      <span>Open jobs analysed</span>
+                      <strong>{roadmapData.summary?.openJobsAnalyzed ?? 0}</strong>
+                    </div>
+
+                    <div className="roadmap-card">
+                      <span>Matched skills</span>
+                      <strong>{roadmapData.summary?.matchedSkillCount ?? 0}</strong>
+                    </div>
+
+                    <div className="roadmap-card">
+                      <span>Missing skills</span>
+                      <strong>{roadmapData.summary?.missingSkillCount ?? 0}</strong>
+                    </div>
+
+                    <div className="roadmap-card">
+                      <span>CV used</span>
+                      <strong>{roadmapData.cv?.usedForRoadmap ? "Yes" : "No"}</strong>
+                    </div>
+                  </div>
+
+                  <div className="skill-pill-section">
+                    <p>Matched Skills Across Current Jobs:</p>
+                    <div className="skill-pill-list">
+                      {roadmapData.matchedSkills?.length === 0 ? (
+                        <span className="skill-pill missing">None</span>
+                      ) : (
+                        roadmapData.matchedSkills?.slice(0, 12).map((item) => (
+                          <span className="skill-pill" key={item.skill}>
+                            {item.skill} ({item.requiredByJobsCount})
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {roadmapData.roadmap?.length === 0 ? (
+                    <div className="roadmap-empty-success">
+                      No major required-skill gap found for the current open jobs.
+                      Keep improving your existing skills and add stronger project evidence to your CV.
+                    </div>
+                  ) : (
+                    <div className="roadmap-list">
+                      {roadmapData.roadmap?.map((item) => (
+                        <div className="roadmap-item" key={item.skill}>
+                          <div className="approval-header">
+                            <div>
+                              <h3>{item.skill}</h3>
+                              <p>{item.category}</p>
+                            </div>
+                            <strong>{item.priority} Priority</strong>
+                          </div>
+
+                          <p>Required by {item.requiredByJobsCount} open job(s).</p>
+                          <p>Suggested mini project: {item.suggestedMiniProject}</p>
+
+                          <ol className="learning-step-list">
+                            {item.learningSteps.map((step) => (
+                              <li key={step}>{step}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="roadmap-match-list">
+                    <h3>Top job readiness snapshot</h3>
+
+                    {roadmapData.topMatches?.map((match) => (
+                      <div className="roadmap-match-card" key={match.jobId}>
+                        <strong>{match.title}</strong>
+                        <span>{match.companyName}</span>
+                        <p>{match.totalScore}% match</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+            <section className="approval-section">
+              <div className="approval-header">
+                <div>
                   <span className="eyebrow">My Applications</span>
                   <h2>Track your application statuses</h2>
                 </div>
@@ -785,4 +890,5 @@ function JobSeekerDashboard() {
 }
 
 export default JobSeekerDashboard;
+
 
