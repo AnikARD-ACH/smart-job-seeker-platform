@@ -1,12 +1,49 @@
 import { useEffect, useRef, useState } from "react";
 
+const STORAGE_KEY = "smart_job_seeker_notifications";
+
+const readStoredNotifications = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.slice(0, 10).map((notification) => ({
+      ...notification,
+      toastVisible: false,
+    }));
+  } catch {
+    return [];
+  }
+};
+
+const saveStoredNotifications = (notifications) => {
+  const safeNotifications = notifications.slice(0, 10).map((notification) => ({
+    ...notification,
+    toastVisible: false,
+  }));
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(safeNotifications));
+};
+
 const InAppNotifications = ({ message, error }) => {
-  const [notifications, setNotifications] = useState([]);
+  const [notifications, setNotifications] = useState(readStoredNotifications);
   const timerRef = useRef({});
   const recentRef = useRef({ key: "", time: 0 });
 
+  const updateNotifications = (updater) => {
+    setNotifications((currentNotifications) => {
+      const nextNotifications = updater(currentNotifications).slice(0, 10);
+      saveStoredNotifications(nextNotifications);
+      return nextNotifications;
+    });
+  };
+
   const hideToast = (id) => {
-    setNotifications((currentNotifications) =>
+    updateNotifications((currentNotifications) =>
       currentNotifications.map((notification) =>
         notification.id === id
           ? { ...notification, toastVisible: false }
@@ -21,7 +58,7 @@ const InAppNotifications = ({ message, error }) => {
   };
 
   const removeNotification = (id) => {
-    setNotifications((currentNotifications) =>
+    updateNotifications((currentNotifications) =>
       currentNotifications.filter((notification) => notification.id !== id)
     );
 
@@ -66,9 +103,10 @@ const InAppNotifications = ({ message, error }) => {
       }),
     };
 
-    setNotifications((currentNotifications) =>
-      [notification, ...currentNotifications].slice(0, 10)
-    );
+    updateNotifications((currentNotifications) => [
+      notification,
+      ...currentNotifications,
+    ]);
 
     timerRef.current[id] = setTimeout(() => {
       hideToast(id);

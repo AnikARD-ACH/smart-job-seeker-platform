@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import LogoutButton from "../components/LogoutButton";
+import InAppNotifications from "../components/InAppNotifications";
 
 function AdminDashboard() {
   const [dashboard, setDashboard] = useState(null);
@@ -77,6 +78,7 @@ function AdminDashboard() {
 
   return (
     <main className="dashboard-page">
+      <InAppNotifications message={approvalMessage} error={error} />
       <aside className="dashboard-sidebar">
         <h2>Admin Panel</h2>
         <nav>
@@ -100,7 +102,6 @@ function AdminDashboard() {
 
         {isLoading && <p>Loading dashboard data...</p>}
 
-        {error && <p className="dashboard-error">{error}</p>}
 
         {approvalMessage && <p className="dashboard-success">{approvalMessage}</p>}
 
@@ -191,3 +192,5 @@ function AdminDashboard() {
 }
 
 export default AdminDashboard;
+
+
